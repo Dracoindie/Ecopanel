@@ -11,18 +11,25 @@ import {
   PhoneOff,
   Radio,
   Send,
-  ShieldAlert,
   Sparkles,
   Zap
 } from "lucide-react";
 import {
   AgentId,
   AgentStatus,
+  InterviewerRole,
   ModeratorDecision,
   SharedInterviewState,
   TranscriptTurn
 } from "@/lib/types";
-import { createInitialState } from "@/lib/orchestrator";
+import {
+  authorizeSpeaker,
+  buildInterviewGreeting,
+  createStateFromSetup,
+  generateOpeningQuestion,
+  initializeInterviewSession,
+  releaseFloor
+} from "@/lib/orchestrator";
 
 type Session = {
   appId: string;
@@ -33,21 +40,25 @@ type Session = {
   agentId: string;
 };
 
+const SETUP_KEY = "echopanel-interview-setup";
+
 const labels: Record<AgentId, string> = {
   technical: "Technical",
-  product: "Product",
+  product: "Product / Manager",
   behavioural: "Behavioural",
   moderator: "Moderator",
   customer: "Customer"
 };
 
 const avatars: Record<AgentId, string> = {
-  technical: "M",
+  technical: "T",
   product: "P",
-  behavioural: "N",
-  moderator: "O",
+  behavioural: "B",
+  moderator: "M",
   customer: "C"
 };
+
+const GENERIC_GREETING_RE = /how can i help you today/i;
 
 function extractTranscriptText(item: unknown): string {
   if (!item || typeof item !== "object") return "";
@@ -55,11 +66,28 @@ function extractTranscriptText(item: unknown): string {
   return [value.text, value.content, value.message].find((x): x is string => typeof x === "string") || "";
 }
 
+function loadSetupFromStorage() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SETUP_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as {
+      candidateName?: string;
+      targetRole?: string;
+      jobDescription?: string;
+      experienceLevel?: string;
+      interviewId?: string;
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function LiveAgoraInterview() {
   const [connectionState, setConnectionState] = useState<"ready" | "connecting" | "live" | "error">("ready");
-  const [statusMessage, setStatusMessage] = useState("Microphone will connect upon starting the live panel.");
+  const [statusMessage, setStatusMessage] = useState("Configure setup, then start the live panel. Moderator owns the floor.");
   const [muted, setMuted] = useState(false);
-  const [interviewState, setInterviewState] = useState<SharedInterviewState>(() => createInitialState());
+  const [interviewState, setInterviewState] = useState<SharedInterviewState>(() => createStateFromSetup({}));
   const [diagnostics, setDiagnostics] = useState({
     connectionMs: 0,
     lastAnalysisMs: 0,
@@ -76,15 +104,69 @@ export function LiveAgoraInterview() {
   const voiceAiRef = useRef<any>(null);
   const audioRef = useRef<HTMLDivElement>(null);
   const lastProcessedTextRef = useRef<string>("");
+  const lastProcessedTurnIdRef = useRef<number | null>(null);
+  const analyzingRef = useRef(false);
+  const floorBusyRef = useRef(false);
   const startTimeRef = useRef<number>(0);
   const interviewStateRef = useRef(interviewState);
   interviewStateRef.current = interviewState;
 
-  // Process a finalized candidate turn through the live analysis and orchestrator pipeline
-  const processFinalizedCandidateTurn = async (rawText: string) => {
+  useEffect(() => {
+    const setup = loadSetupFromStorage();
+    if (setup) {
+      setInterviewState(
+        createStateFromSetup({
+          candidateName: setup.candidateName,
+          targetRole: setup.targetRole,
+          jobDescription: setup.jobDescription,
+          experienceLevel: setup.experienceLevel,
+          interviewId: setup.interviewId
+        })
+      );
+      setStatusMessage(
+        `Ready for ${setup.targetRole || "role"} · ${setup.experienceLevel || "Mid"} · JD ${setup.jobDescription ? "loaded" : "empty"}`
+      );
+    }
+  }, []);
+
+  const broadcastAuthorizedSpeech = async (text: string) => {
+    const session = sessionRef.current;
+    if (!session?.agentId || !text.trim()) return false;
+    if (floorBusyRef.current) return false;
+    floorBusyRef.current = true;
+    try {
+      await fetch("/api/interview/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentId: session.agentId,
+          text,
+          priority: "INTERRUPT",
+          interruptable: true
+        })
+      });
+      return true;
+    } catch (speakErr) {
+      console.warn("Agora speak broadcast error:", speakErr);
+      return false;
+    } finally {
+      // Keep floor briefly locked to prevent concurrent TTS
+      setTimeout(() => {
+        floorBusyRef.current = false;
+      }, 1500);
+    }
+  };
+
+  const processFinalizedCandidateTurn = async (rawText: string, rawTurnId?: number) => {
     const text = rawText.trim();
-    if (!text || text === lastProcessedTextRef.current || isAnalyzing) return;
+    if (!text || GENERIC_GREETING_RE.test(text)) return;
+    if (rawTurnId != null && lastProcessedTurnIdRef.current === rawTurnId) return;
+    if (text === lastProcessedTextRef.current) return;
+    if (analyzingRef.current || isAnalyzing) return;
+
     lastProcessedTextRef.current = text;
+    if (rawTurnId != null) lastProcessedTurnIdRef.current = rawTurnId;
+    analyzingRef.current = true;
 
     const turnId = `turn-${Date.now()}`;
     const candidateTurn: TranscriptTurn = {
@@ -92,14 +174,27 @@ export function LiveAgoraInterview() {
       speaker: "candidate",
       text,
       timestamp: Date.now(),
-      isFinal: true
+      isFinal: true,
+      rawTurnId
     };
 
     setIsAnalyzing(true);
+    setInterviewState(prev => ({
+      ...prev,
+      activeSpeaker: "candidate",
+      agentStates: {
+        ...prev.agentStates,
+        moderator: "thinking",
+        technical: "listening",
+        product: "listening",
+        behavioural: "listening"
+      },
+      transcript: prev.transcript.some(t => t.id === turnId) ? prev.transcript : [...prev.transcript, candidateTurn]
+    }));
+
     const analysisStart = performance.now();
 
     try {
-      // Send to Answer Analysis API
       const res = await fetch("/api/interview/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,61 +213,28 @@ export function LiveAgoraInterview() {
           turnsCount: prev.turnsCount + 1
         }));
 
-        // Execute live Agora voice broadcast if session is active
-        const session = sessionRef.current;
-        if (session?.agentId && nextDecision?.suggestedQuestion) {
-          try {
-            await fetch("/api/interview/speak", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                agentId: session.agentId,
-                text: nextDecision.suggestedQuestion,
-                priority: "INTERRUPT",
-                interruptable: true
-              })
-            });
-          } catch (speakErr) {
-            console.warn("Agora speak broadcast error:", speakErr);
-          }
+        if (nextDecision?.suggestedQuestion) {
+          await broadcastAuthorizedSpeech(nextDecision.suggestedQuestion);
+
+          setTimeout(() => {
+            setInterviewState(prev =>
+              authorizeSpeaker(prev, nextDecision.nextSpeaker as InterviewerRole, nextDecision.suggestedQuestion)
+            );
+            setTimeout(() => {
+              setInterviewState(prev => releaseFloor(prev));
+            }, 4000);
+          }, 800);
         }
-
-        // Handoff to speaking after a brief transition
-        setTimeout(() => {
-          setInterviewState(prev => {
-            const updated = { ...prev };
-            (Object.keys(updated.agentStates) as AgentId[]).forEach(id => {
-              if (id === nextDecision.nextSpeaker) {
-                updated.agentStates[id] = "speaking";
-              } else {
-                updated.agentStates[id] = "idle";
-              }
-            });
-            updated.activeSpeaker = nextDecision.nextSpeaker;
-
-            // Add the agent's turn to the transcript
-            if (nextDecision.suggestedQuestion) {
-              const agentTurn: TranscriptTurn = {
-                id: `turn-agent-${Date.now()}`,
-                speaker: nextDecision.nextSpeaker,
-                text: nextDecision.suggestedQuestion,
-                timestamp: Date.now(),
-                isFinal: true
-              };
-              updated.transcript = [...updated.transcript, agentTurn];
-            }
-            return updated;
-          });
-        }, 1200);
       }
     } catch (err) {
       console.error("Analysis pipeline error:", err);
     } finally {
+      analyzingRef.current = false;
       setIsAnalyzing(false);
     }
   };
 
-  const stop = async () => {
+  const cleanupConnections = async () => {
     const session = sessionRef.current;
     try {
       if (session?.agentId) {
@@ -182,9 +244,7 @@ export function LiveAgoraInterview() {
           body: JSON.stringify({ agentId: session.agentId })
         });
       }
-    } catch {
-      /* continue cleanup */
-    }
+    } catch {}
 
     try { voiceAiRef.current?.unsubscribe(); voiceAiRef.current?.destroy(); } catch {}
     try { await rtmRef.current?.logout(); } catch {}
@@ -196,23 +256,28 @@ export function LiveAgoraInterview() {
     trackRef.current = null;
     rtmRef.current = null;
     voiceAiRef.current = null;
+    floorBusyRef.current = false;
+  };
 
+  const stop = async () => {
+    await cleanupConnections();
     setConnectionState("ready");
     setStatusMessage("Live interview ended.");
 
-    // Finalize assessment
-    try {
-      const assessRes = await fetch("/api/interview/assess", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(interviewStateRef.current)
-      });
-      const assessData = await assessRes.json();
-      if (assessData.assessment) {
-        setInterviewState(prev => ({ ...prev, finalAssessment: assessData.assessment }));
+    if (interviewStateRef.current.transcript.length > 0) {
+      try {
+        const assessRes = await fetch("/api/interview/assess", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(interviewStateRef.current)
+        });
+        const assessData = await assessRes.json();
+        if (assessData.assessment) {
+          setInterviewState(prev => ({ ...prev, finalAssessment: assessData.assessment }));
+        }
+      } catch (err) {
+        console.warn("Could not generate assessment:", err);
       }
-    } catch (err) {
-      console.warn("Could not generate assessment:", err);
     }
   };
 
@@ -220,15 +285,37 @@ export function LiveAgoraInterview() {
     setConnectionState("connecting");
     setStatusMessage("Requesting secure Agora RTC + RTM session…");
     startTimeRef.current = performance.now();
+    lastProcessedTextRef.current = "";
+    lastProcessedTurnIdRef.current = null;
+
+    const setup = loadSetupFromStorage();
+    const baseState = createStateFromSetup({
+      candidateName: setup?.candidateName || interviewStateRef.current.candidateName,
+      targetRole: setup?.targetRole || interviewStateRef.current.targetRole,
+      jobDescription: setup?.jobDescription || interviewStateRef.current.jobDescription,
+      experienceLevel: setup?.experienceLevel || interviewStateRef.current.experienceLevel,
+      interviewId: setup?.interviewId || interviewStateRef.current.interviewId
+    });
+    setInterviewState(baseState);
 
     try {
       const tokenRes = await fetch("/api/agora/token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ interviewId: "live-interview" })
+        body: JSON.stringify({ interviewId: baseState.interviewId })
       });
       const token = await tokenRes.json();
-      if (!tokenRes.ok) throw new Error(token.error || "Failed to issue Agora token");
+      if (!tokenRes.ok) {
+        const missingVars = Array.isArray(token.missing) ? token.missing.join(", ") : "";
+        throw new Error(
+          token.error === "Agora is not configured"
+            ? `Agora credentials missing (${missingVars || "AGORA_APP_ID, AGORA_APP_CERTIFICATE"}). Please configure .env.local or use deterministic /demo mode.`
+            : (token.error || "Failed to issue Agora token")
+        );
+      }
+
+      const greeting = buildInterviewGreeting(baseState);
+      const openingQuestion = generateOpeningQuestion(baseState);
 
       const agentRes = await fetch("/api/agora/start", {
         method: "POST",
@@ -236,7 +323,11 @@ export function LiveAgoraInterview() {
         body: JSON.stringify({
           channel: token.channel,
           requesterId: token.uid,
-          targetRole: "Software Engineer"
+          targetRole: baseState.targetRole,
+          jobDescription: baseState.jobDescription,
+          experienceLevel: baseState.experienceLevel,
+          candidateName: baseState.candidateName,
+          greeting
         })
       });
       const agent = await agentRes.json();
@@ -264,7 +355,7 @@ export function LiveAgoraInterview() {
       });
 
       client.on("connection-state-change", (next: string) => {
-        setStatusMessage(next === "CONNECTED" ? "Connected to Agora. Panel is listening." : `Agora connection: ${next}`);
+        setStatusMessage(next === "CONNECTED" ? "Connected to Agora. Moderator initializing interview…" : `Agora connection: ${next}`);
       });
 
       await client.join(token.appId, token.channel, token.token, Number(token.uid));
@@ -286,52 +377,88 @@ export function LiveAgoraInterview() {
       });
       voiceAiRef.current = ai;
 
-      // Handle RTM real-time finalized transcripts
-      ai.on((toolkit as any).AgoraVoiceAIEvents.TRANSCRIPT_UPDATED, (items: unknown[]) => {
-        const latest = items.at(-1);
-        const text = extractTranscriptText(latest);
-        const isCandidate = (latest as any)?.uid === "0";
+      const TurnStatus = (toolkit as any).TurnStatus;
+      const candidateUid = String(token.uid);
+      const agentUid = String(token.agentUid || agent.agentUid);
 
-        if (text && isCandidate) {
-          // Normalize and process finalized turn
-          void processFinalizedCandidateTurn(text);
-        } else if (text && !isCandidate) {
+      ai.on((toolkit as any).AgoraVoiceAIEvents.TRANSCRIPT_UPDATED, (items: unknown[]) => {
+        if (!Array.isArray(items) || items.length === 0) return;
+        const latest = items.at(-1) as Record<string, unknown>;
+        const text = extractTranscriptText(latest);
+        if (!text) return;
+
+        const uid = String(latest.uid ?? "");
+        const status = latest.status as number | undefined;
+        const turnId = typeof latest.turn_id === "number" ? latest.turn_id : undefined;
+        const isFinal = status === undefined || status === TurnStatus?.END || status === 1;
+
+        // Ignore partial transcripts
+        if (!isFinal) return;
+
+        // Filter generic assistant greeting if Console still emits one
+        if (GENERIC_GREETING_RE.test(text)) {
+          setStatusMessage("Suppressed generic Agora greeting — EchoPanel owns interview flow.");
+          return;
+        }
+
+        const isCandidate = uid === candidateUid || uid === "0";
+        const isAgent = uid === agentUid || (!isCandidate && uid !== "");
+
+        if (isCandidate) {
+          void processFinalizedCandidateTurn(text, turnId);
+        } else if (isAgent) {
           setInterviewState(prev => {
+            if (prev.transcript.some(t => t.text === text)) return prev;
+            const authorized =
+              (prev.lastDecision?.nextSpeaker as AgentId) ||
+              (prev.activeSpeaker !== "candidate" ? prev.activeSpeaker : "technical");
             const agentTurn: TranscriptTurn = {
               id: `turn-agora-${Date.now()}`,
-              speaker: prev.activeSpeaker || "technical",
+              speaker: authorized as TranscriptTurn["speaker"],
               text,
               timestamp: Date.now(),
-              isFinal: true
+              isFinal: true,
+              rawTurnId: turnId
             };
-            if (prev.transcript.some(t => t.text === text)) return prev;
             return { ...prev, transcript: [...prev.transcript, agentTurn] };
           });
         }
       });
 
       ai.on((toolkit as any).AgoraVoiceAIEvents.AGENT_STATE_CHANGED, (_: unknown, event: any) => {
-        setStatusMessage(`Agora Panel: ${event?.state || "active"}`);
+        setStatusMessage(`Agora voice layer: ${event?.state || "active"} · Moderator authoritative`);
       });
 
       ai.on((toolkit as any).AgoraVoiceAIEvents.AGENT_INTERRUPTED, () => {
-        setStatusMessage("Candidate speaking (Barge-in active). Agent yields floor.");
+        setStatusMessage("Candidate speaking (barge-in). Agent yields floor.");
+        setInterviewState(prev => releaseFloor(prev));
       });
 
       ai.subscribeMessage(token.channel);
 
+      // EchoPanel takes ownership: initialize interview + authorize first speaker
+      const init = initializeInterviewSession(baseState);
+      setInterviewState(init.updatedState);
+
+      // Interrupt any Console greeting with EchoPanel opening
+      await broadcastAuthorizedSpeech(`${greeting} ${openingQuestion}`);
+
       const connDuration = Math.round(performance.now() - startTimeRef.current);
       setConnectionState("live");
-      setStatusMessage("Agora voice session active. Speak freely; VAD supports interruption.");
+      setStatusMessage("Interview initialized. Moderator coordinating Technical / Product / Behavioural.");
       setDiagnostics(prev => ({ ...prev, connectionMs: connDuration }));
+
+      setTimeout(() => {
+        setInterviewState(prev => releaseFloor(prev));
+      }, 5000);
     } catch (err) {
-      await stop();
+      await cleanupConnections();
       setConnectionState("error");
       setStatusMessage(err instanceof Error ? err.message : "Live setup encountered an issue.");
     }
   };
 
-  useEffect(() => () => { void stop(); }, []);
+  useEffect(() => () => { void cleanupConnections(); }, []);
 
   const toggleMute = async () => {
     if (!trackRef.current) return;
@@ -346,9 +473,9 @@ export function LiveAgoraInterview() {
     setTextInput("");
   };
 
-  const panelAgents: AgentId[] = ["technical", "product", "behavioural"];
+  const panelAgents: AgentId[] = ["moderator", "technical", "product", "behavioural"];
   const decision = interviewState.lastDecision;
-  const currentClaim = interviewState.claims[interviewState.claims.length - 1];
+  const claims = interviewState.claims;
 
   return (
     <main className="min-h-screen bg-ink p-3 md:p-6">
@@ -361,17 +488,26 @@ export function LiveAgoraInterview() {
             LIVE AGORA MODE
           </span>
           <span>Difficulty {interviewState.difficulty}/5</span>
+          <span className="hidden sm:inline">{interviewState.experienceLevel}</span>
+          <Link href="/setup" className="text-slate-400 hover:text-white transition-colors">
+            Setup →
+          </Link>
           <Link href="/demo" className="text-slate-400 hover:text-white transition-colors">
-            Deterministic Demo →
+            Demo →
           </Link>
         </div>
       </header>
 
-      {/* Control bar */}
       <div className="mx-auto mb-4 flex max-w-[1550px] flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
         <div className="flex items-center gap-3">
-          <div className={`h-3 w-3 rounded-full ${connectionState === "live" ? "bg-mint pulse" : connectionState === "connecting" ? "bg-amber-400" : "bg-slate-500"}`} />
-          <p className="text-sm font-medium text-slate-200">{statusMessage}</p>
+          <div className={`h-3 w-3 rounded-full ${connectionState === "live" ? "bg-mint pulse" : connectionState === "connecting" ? "bg-amber-400" : connectionState === "error" ? "bg-red-400" : "bg-slate-500"}`} />
+          <div>
+            <p className="text-sm font-medium text-slate-200">{statusMessage}</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Role: {interviewState.targetRole}
+              {interviewState.jobDescription ? ` · JD signals active (${Math.min(80, interviewState.jobDescription.length)} chars)` : " · No JD — add one in Setup"}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {connectionState !== "live" ? (
@@ -401,8 +537,7 @@ export function LiveAgoraInterview() {
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-[1550px] gap-4 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
-        {/* PANEL INTERVIEWERS COLUMN */}
+      <div className="mx-auto grid max-w-[1550px] gap-4 xl:grid-cols-[300px_minmax(0,1fr)_380px]">
         <aside className="glass order-2 rounded-2xl p-4 xl:order-1 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -415,17 +550,20 @@ export function LiveAgoraInterview() {
               const isSpeaking = agentStatus === "speaking";
               const isRequesting = agentStatus === "requesting";
               const isHandoff = agentStatus === "handoff";
+              const isThinking = agentStatus === "thinking";
 
               return (
                 <div
                   key={id}
                   className={`mb-3 rounded-xl border p-4 transition-all ${
                     isSpeaking
-                      ? "border-mint/60 bg-mint/10 shadow-glow"
+                      ? "border-mint/60 bg-mint/10 shadow-glow scale-[1.02]"
                       : isRequesting
                       ? "border-amber-400/50 bg-amber-400/10"
                       : isHandoff
                       ? "border-violet/50 bg-violet/10"
+                      : isThinking
+                      ? "border-sky-400/40 bg-sky-400/10"
                       : "border-white/10 bg-white/5"
                   }`}
                 >
@@ -434,7 +572,7 @@ export function LiveAgoraInterview() {
                       {avatars[id]}
                     </b>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{labels[id]} interviewer</p>
+                      <p className="text-sm font-semibold truncate">{labels[id]}</p>
                       <p
                         className={`mt-1 text-xs capitalize ${
                           isSpeaking
@@ -443,6 +581,8 @@ export function LiveAgoraInterview() {
                             ? "text-amber-300 font-medium"
                             : isHandoff
                             ? "text-violet font-medium"
+                            : isThinking
+                            ? "text-sky-300"
                             : "text-slate-500"
                         }`}
                       >
@@ -454,7 +594,6 @@ export function LiveAgoraInterview() {
               );
             })}
 
-            {/* Live Competency State Radar */}
             <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs font-bold tracking-widest text-slate-400 mb-3">LIVE COMPETENCIES</p>
               <div className="space-y-2 text-xs">
@@ -474,11 +613,10 @@ export function LiveAgoraInterview() {
           </div>
 
           <div className="mt-4 rounded-xl bg-white/5 p-3 text-xs text-slate-400">
-            <b>Moderator Policy:</b> Only authorized speaker occupies microphone floor. Concurrency is deterministically locked.
+            <b>Moderator Policy:</b> Only one authorized AI speaker may TTS at a time. Floor lock: {interviewState.floorLocked ? "LOCKED" : "OPEN"}.
           </div>
         </aside>
 
-        {/* CENTER LIVE BOARDROOM */}
         <section className="glass relative order-1 flex min-h-[520px] flex-col overflow-hidden rounded-2xl xl:order-2">
           <div className="absolute inset-0 gridline opacity-50" />
           <div className="relative flex items-center justify-between border-b border-white/10 p-5">
@@ -494,7 +632,6 @@ export function LiveAgoraInterview() {
             </div>
           </div>
 
-          {/* Candidate avatar & audio center */}
           <div className="relative flex flex-1 flex-col items-center justify-center p-8 text-center">
             <div
               className={`grid h-36 w-36 place-items-center rounded-full border-2 border-mint/40 bg-mint/10 text-4xl font-semibold shadow-glow transition-all ${
@@ -512,7 +649,6 @@ export function LiveAgoraInterview() {
               )}
             </p>
 
-            {/* Manual test fallback input (for quick testing without voice) */}
             <form onSubmit={handleManualCandidateSubmit} className="mt-6 flex w-full max-w-lg gap-2">
               <input
                 type="text"
@@ -531,49 +667,58 @@ export function LiveAgoraInterview() {
             </form>
           </div>
 
-          {/* Bottom active turn text */}
           <div className="relative border-t border-white/10 p-5 bg-black/20">
             <p className="text-xs text-slate-500 uppercase tracking-wider">
               NOW ACTIVE: {labels[interviewState.activeSpeaker as AgentId] || interviewState.activeSpeaker}
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-200">
-              {interviewState.transcript.at(-1)?.text || "Panel is standing by for initial candidate introduction."}
+              {interviewState.transcript.at(-1)?.text || "Panel standing by — start live voice to initialize the Moderator."}
             </p>
           </div>
           <div ref={audioRef} />
         </section>
 
-        {/* RIGHT COLUMN: CLAIMGRAPH & DECISION ENGINE */}
-        <aside className="glass order-3 rounded-2xl p-4 flex flex-col gap-4">
-          <div>
+        <aside className="glass order-3 rounded-2xl p-4 flex flex-col gap-4 min-h-[520px]">
+          <div className="flex-1 overflow-y-auto">
             <div className="flex items-center gap-2 mb-4">
               <Sparkles size={16} className="text-mint" />
               <p className="text-xs font-bold tracking-widest text-slate-300">LIVE CLAIMGRAPH</p>
+              <span className="ml-auto text-[10px] text-slate-500">{claims.length} nodes</span>
             </div>
 
-            {currentClaim ? (
-              <div className="rounded-xl border border-mint/30 bg-mint/5 p-4">
-                <p className="text-xs text-slate-400">CLAIM NODE · LIVE</p>
-                <p className="mt-2 text-sm font-medium leading-5 text-slate-200">{currentClaim.claim}</p>
-                <div className="mt-4 space-y-2 text-xs">
-                  <p className={`rounded p-2 font-medium ${currentClaim.technicalStatus === "supported" ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-200"}`}>
-                    Technical · {currentClaim.technicalStatus === "supported" ? "✓ Supported" : "⚠ Unverified"}
-                  </p>
-                  <p className={`rounded p-2 font-medium ${currentClaim.productStatus === "supported" ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-200"}`}>
-                    Product · {currentClaim.productStatus === "supported" ? "✓ Customer impact supported" : "⚠ Business impact missing"}
-                  </p>
-                  <p className="rounded bg-white/5 p-2 text-slate-400">
-                    Evidence · {currentClaim.evidence}
-                  </p>
-                </div>
+            {claims.length > 0 ? (
+              <div className="space-y-3">
+                {claims.map(claim => (
+                  <div key={claim.id} className="rounded-xl border border-mint/30 bg-mint/5 p-4">
+                    <p className="text-xs text-slate-400 uppercase tracking-wide">
+                      CLAIM · {claim.category} · {claim.status}
+                    </p>
+                    <p className="mt-2 text-sm font-medium leading-5 text-slate-100">{claim.claim}</p>
+                    <div className="mt-3 space-y-2 text-xs">
+                      <p className={`rounded p-2 font-medium ${claim.technicalStatus === "supported" ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-200"}`}>
+                        Technical · {claim.technicalStatus === "supported" ? "✓ Supported" : `⚠ ${claim.technicalStatus}`}
+                      </p>
+                      <p className={`rounded p-2 font-medium ${claim.productStatus === "supported" ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-200"}`}>
+                        Product Impact · {claim.productStatus === "supported" ? "✓ Supported" : "⚠ Missing"}
+                      </p>
+                      {claim.behaviouralStatus && (
+                        <p className={`rounded p-2 font-medium ${claim.behaviouralStatus === "supported" ? "bg-emerald-400/10 text-emerald-300" : "bg-white/5 text-slate-300"}`}>
+                          Behavioural · {claim.behaviouralStatus}
+                        </p>
+                      )}
+                      <p className="rounded bg-white/5 p-2 text-slate-400">
+                        Evidence · turn {claim.sourceTurnId} · conf {(claim.confidence * 100).toFixed(0)}%
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="rounded-xl border border-white/10 bg-white/5 p-5 text-xs text-slate-500 text-center">
-                ClaimGraph generates real nodes when candidate states measurable technical or business claims.
+                ClaimGraph updates live from finalized candidate answers. Try: &quot;We used Redis caching and reduced API latency by 40%.&quot;
               </div>
             )}
 
-            {/* Contradiction card if detected */}
             {interviewState.contradictions.length > 0 && (
               <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
                 <b>Contradiction Status:</b>
@@ -585,33 +730,45 @@ export function LiveAgoraInterview() {
               </div>
             )}
 
-            {/* Next Speaker & Reason Card */}
             {decision && (
               <div className="mt-4 rounded-xl border border-violet/30 bg-violet/10 p-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-violet">NEXT SPEAKER · {labels[decision.nextSpeaker].toUpperCase()}</p>
-                  <span className="text-xs text-slate-400">Priority {decision.priority}</span>
+                  <p className="text-xs font-bold text-violet">
+                    MODERATOR → {labels[decision.nextSpeaker]?.toUpperCase() || decision.nextSpeaker.toUpperCase()}
+                  </p>
+                  <span className="text-xs text-slate-400">P{decision.priority}</span>
                 </div>
                 <p className="mt-2 text-sm font-semibold text-slate-100">{decision.reason}</p>
                 <p className="mt-2 text-xs text-slate-400">Objective: {decision.questionObjective}</p>
+                <p className="mt-1 text-xs text-slate-500">Difficulty: {decision.difficulty}/5</p>
+                {decision.suggestedQuestion && (
+                  <p className="mt-3 rounded bg-black/20 p-2 text-xs leading-5 text-slate-300">
+                    Q: {decision.suggestedQuestion}
+                  </p>
+                )}
               </div>
             )}
           </div>
 
-          {/* Performance Diagnostics */}
-          <div className="mt-auto rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-slate-400 space-y-2">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-slate-400 space-y-2">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5"><Clock size={13} /> Connection</span>
               <b>{diagnostics.connectionMs ? `${diagnostics.connectionMs} ms` : "Standby"}</b>
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5"><Zap size={13} /> Analysis Latency</span>
-              <b>{diagnostics.lastAnalysisMs ? `${diagnostics.lastAnalysisMs} ms` : "< 15 ms"}</b>
+              <b>{diagnostics.lastAnalysisMs ? `${diagnostics.lastAnalysisMs} ms` : "—"}</b>
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5"><Activity size={13} /> Processed Turns</span>
               <b>{diagnostics.turnsCount}</b>
             </div>
+            {diagnostics.timeToFirstAudioMs > 0 && (
+              <div className="flex items-center justify-between">
+                <span>First audio</span>
+                <b>{diagnostics.timeToFirstAudioMs} ms</b>
+              </div>
+            )}
             {interviewState.finalAssessment && (
               <Link
                 href={`/passport/EP-${interviewState.interviewId.slice(0, 6).toUpperCase()}`}
@@ -624,14 +781,13 @@ export function LiveAgoraInterview() {
         </aside>
       </div>
 
-      {/* HORIZONTAL LIVE TRANSCRIPT CAROUSEL */}
       <section className="glass mx-auto mt-4 max-w-[1550px] rounded-2xl p-4">
         <p className="mb-3 text-xs font-bold tracking-widest text-slate-400">
-          LIVE TRANSCRIPT · CLICKABLE EVIDENCE LINKED
+          LIVE TRANSCRIPT · EVIDENCE LINKED
         </p>
-        <div className="flex max-h-40 gap-3 overflow-x-auto pb-2">
+        <div className="flex max-h-44 gap-3 overflow-x-auto pb-2">
           {interviewState.transcript.length === 0 ? (
-            <p className="text-xs text-slate-500 p-2">Transcribed turns will appear here as speech is recognized.</p>
+            <p className="text-xs text-slate-500 p-2">Transcribed turns appear here as speech is finalized.</p>
           ) : (
             interviewState.transcript.map(turn => (
               <div key={turn.id} className="min-w-72 max-w-sm rounded-lg bg-white/5 p-3 text-xs flex flex-col justify-between">
@@ -639,10 +795,10 @@ export function LiveAgoraInterview() {
                   <b className={turn.speaker === "candidate" ? "text-mint" : "text-violet capitalize"}>
                     {turn.speaker === "candidate" ? "Candidate" : labels[turn.speaker as AgentId] || turn.speaker}
                   </b>
-                  <p className="mt-1 leading-5 text-slate-300 line-clamp-3">{turn.text}</p>
+                  <p className="mt-1 leading-5 text-slate-300 line-clamp-4">{turn.text}</p>
                 </div>
                 <span className="text-[10px] text-slate-500 mt-2 block">
-                  {new Date(turn.timestamp).toLocaleTimeString()}
+                  {new Date(turn.timestamp).toLocaleTimeString()} · {turn.id}
                 </span>
               </div>
             ))

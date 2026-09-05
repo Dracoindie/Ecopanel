@@ -2,6 +2,7 @@
 
 export type AgentId = "technical" | "product" | "behavioural" | "moderator" | "customer";
 export type SpeakerId = "candidate" | AgentId;
+export type InterviewerRole = "technical" | "product" | "behavioural";
 
 export type AgentStatus = "listening" | "thinking" | "requesting" | "speaking" | "handoff" | "idle";
 
@@ -44,6 +45,7 @@ export const AnswerAnalysisSchema = z.object({
       category: z.enum(["performance", "architecture", "scalability", "business", "timeline", "general"]).default("general"),
       technicalStatus: z.enum(["supported", "unverified", "contradictory"]).default("supported"),
       productStatus: z.enum(["supported", "missing", "unverified"]).default("missing"),
+      behaviouralStatus: z.enum(["supported", "pending", "contradictory"]).optional(),
       confidence: z.number().min(0).max(1).default(0.85),
       evidence: z.string().default("")
     })
@@ -104,14 +106,26 @@ export interface FinalAssessment {
   isAiAssisted: true;
 }
 
+export interface InterviewSetup {
+  candidateName: string;
+  targetRole: string;
+  jobDescription: string;
+  experienceLevel: string;
+  interviewId: string;
+}
+
 export interface SharedInterviewState {
   interviewId: string;
   targetRole: string;
   candidateName: string;
+  jobDescription: string;
+  experienceLevel: string;
   activeSpeaker: SpeakerId;
+  previousSpeaker?: SpeakerId;
   difficulty: number;
   consecutiveStrongCount: number;
   consecutiveWeakCount: number;
+  floorLocked: boolean;
   competencies: CompetencyState;
   claims: ClaimNode[];
   transcript: TranscriptTurn[];
@@ -125,4 +139,5 @@ export interface SharedInterviewState {
   agentStates: Record<AgentId, AgentStatus>;
   lastDecision?: ModeratorDecision;
   finalAssessment?: FinalAssessment;
+  interviewInitialized: boolean;
 }
