@@ -1,0 +1,2 @@
+import { NextResponse } from "next/server"; import { agoraConfig } from "@/lib/agora";
+export async function GET() { const config = agoraConfig(); return NextResponse.json(config.configured ? { configured: true, channelPrefix: config.channelPrefix, area: config.area } : { configured: false, reason: "Agora is not configured. Add AGORA_APP_ID, AGORA_APP_CERTIFICATE, and AGORA_PIPELINE_ID.", fallback: "demo_or_text_mode" }); }

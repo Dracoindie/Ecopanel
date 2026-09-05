@@ -1,0 +1,2 @@
+import { NextResponse } from "next/server";
+export async function POST(_: Request, { params }: { params: { platform: string } }) { if (!["linkedin", "naukri", "jobhai"].includes(params.platform)) return NextResponse.json({ error: "Unsupported integration" }, { status: 404 }); return NextResponse.json({ available: false, reason: "Official API credentials/permissions required", fallback: "share_verification_url", platform: params.platform }); }
