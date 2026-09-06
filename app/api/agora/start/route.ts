@@ -10,7 +10,8 @@ const schema = z.object({
   jobDescription: z.string().max(4000).optional().default(""),
   experienceLevel: z.string().max(40).optional().default("Mid"),
   candidateName: z.string().max(80).optional().default("Candidate"),
-  greeting: z.string().max(600).optional()
+  greeting: z.string().max(600).optional(),
+  openingQuestion: z.string().max(1200).optional()
 });
 
 function buildInstructions(role: string, experienceLevel: string, jobDescription: string) {
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { channel, requesterId, targetRole, jobDescription, experienceLevel, candidateName, greeting } = parsed.data;
+  const { channel, requesterId, targetRole, jobDescription, experienceLevel, candidateName, greeting, openingQuestion } = parsed.data;
   const interviewGreeting =
     greeting ||
     `Welcome to EchoPanel, ${candidateName}. I'll coordinate your adaptive interview for ${targetRole} across technical, product, and behavioural perspectives.`;
@@ -53,13 +54,25 @@ export async function POST(request: Request) {
   try {
     const area = config.area === "EU" ? Area.EU : config.area === "AP" ? Area.AP : Area.US;
     const client = new AgoraClient({ appId: config.appId, appCertificate: config.appCertificate, area });
+    const promptInstruction = [
+      buildInstructions(targetRole, experienceLevel, jobDescription),
+      "You are the voice output layer for EchoPanel. EchoPanel controls the interview.",
+      "Do not independently conduct the interview or answer a candidate turn.",
+      "EchoPanel will interrupt every candidate turn and use the supported speak endpoint for authorized output.",
+      "Do not introduce yourself as a generic assistant. Do not answer the candidate independently.",
+      "Do not say 'How can I help you today?' or 'I\\'m an AI developed by OpenAI'.",
+      "When the candidate speaks, remain silent and yield the floor to EchoPanel's Moderator."
+    ].join(" ");
+
+    // AgentSession supplies the required ConvoAI authorization header. The
+    // greeting is supplied by EchoPanel and replaces the Console default, so
+    // the first audio is interview-specific rather than a generic assistant.
     const agent = new Agent({
       client,
       pipelineId: config.pipelineId,
-      instructions: buildInstructions(targetRole, experienceLevel, jobDescription),
-      greeting: interviewGreeting,
+      instructions: promptInstruction,
+      greeting: `${interviewGreeting} ${openingQuestion || ""}`.trim(),
       turnDetection: {
-        language: "en-US",
         config: {
           start_of_speech: { mode: "vad", vad_config: { interrupt_duration_ms: 160, prefix_padding_ms: 300 } },
           end_of_speech: { mode: "vad", vad_config: { silence_duration_ms: 480 } }
@@ -68,7 +81,6 @@ export async function POST(request: Request) {
       advancedFeatures: { enable_rtm: true },
       parameters: { data_channel: "rtm", enable_error_message: true, enable_metrics: true }
     });
-
     const session = agent.createSession({
       channel,
       agentUid: DEFAULT_AGENT_UID,
@@ -77,8 +89,31 @@ export async function POST(request: Request) {
       expiresIn: ExpiresIn.hours(1),
       debug: false
     });
-
     const agentId = await session.start();
+
+    // Re-apply the output-only prompt after the pipeline is running. This is
+    // supported by the Agora update endpoint and does not expose credentials.
+    if (agentId) {
+      try {
+        await client.agents.update({
+          appid: config.appId,
+          agentId,
+          properties: {
+            llm: {
+              system_messages: [
+                {
+                  role: "system",
+                  content: promptInstruction
+                }
+              ]
+            }
+          }
+        });
+      } catch (updateErr) {
+        console.warn("Could not update agent prompt in start route:", updateErr);
+      }
+    }
+
     return NextResponse.json({
       agentId,
       state: "RUNNING",

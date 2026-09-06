@@ -1,4 +1,4 @@
-﻿import {
+import {
   AnswerAnalysis,
   ClaimNode,
   InterviewSetup,
@@ -229,15 +229,25 @@ export function analyzeAnswerLocally(
     /idempotenc|distributed|retry|queue|backoff|failover|partition|kafka|postgres|kubernetes|observability|sla/i.test(trimmed);
   const hasMeasurableMetric = /\d+(\.\d+)?\s*(%|ms|s\b|weeks?|months?)/i.test(trimmed);
 
+  const isConversationalFiller =
+    /^(yes|no|yeah|yep|sure|okay|ok|hello|hi|hey|thanks|thank you|can you hear me|understood|sounds good|got it|makes sense)[\s\.,!]*$/i.test(trimmed) ||
+    /^(yes|okay|ok|sure|got it)[\s,]+(understood|got it|sounds good|makes sense|thanks|sure)[\s\.,!]*$/i.test(trimmed);
+  const isExplicitlyWeak =
+    /^(not\s+sure|i\s+don'?t\s+know|i\s+forget|no\s+idea|cannot\s+recall|can'?t\s+remember|no\s+experience)\.?$/i.test(trimmed);
+
   let quality: "strong" | "weak" | "vague" | "contradictory" | "incomplete" = "strong";
   if (hasContradiction && !isReconciliation) {
     quality = "contradictory";
   } else if (isVague) {
     quality = "vague";
-  } else if (trimmed.length < 25) {
-    quality = "incomplete";
-  } else if (!hasMeasurableMetric && !hasTechnicalDepth && trimmed.length < 80) {
+  } else if (isExplicitlyWeak) {
     quality = "weak";
+  } else if (trimmed.length < 20 && !isConversationalFiller) {
+    quality = "incomplete";
+  } else if (isConversationalFiller) {
+    quality = "vague";
+  } else {
+    quality = "strong";
   }
 
   let correctness = 7.5;
@@ -527,9 +537,10 @@ export function runModeratorStep(
       updatedState.difficulty -= 1;
       updatedState.consecutiveWeakCount = 0;
     }
-  } else if (analysis.quality === "vague") {
-    // maintain difficulty; quantification follow-up below
+  } else if (analysis.quality === "vague" || analysis.quality === "contradictory") {
+    // maintain difficulty; demand evidence or resolve contradiction
     updatedState.consecutiveStrongCount = 0;
+    updatedState.consecutiveWeakCount = 0;
   }
 
   // 6. Deterministic Moderator Priority Routing
@@ -686,14 +697,19 @@ export function authorizeSpeaker(
     else updated.agentStates[id] = "idle";
   });
 
-  if (spokenText) {
-    updated.transcript.push({
-      id: `turn-${speaker}-${Date.now()}`,
-      speaker,
-      text: spokenText,
-      timestamp: Date.now(),
-      isFinal: true
-    });
+  if (spokenText && spokenText.trim()) {
+    const isDuplicate = updated.transcript.some(
+      t => t.text.trim().toLowerCase() === spokenText.trim().toLowerCase()
+    );
+    if (!isDuplicate) {
+      updated.transcript.push({
+        id: `turn-${speaker}-${Date.now()}`,
+        speaker,
+        text: spokenText,
+        timestamp: Date.now(),
+        isFinal: true
+      });
+    }
   }
 
   return updated;

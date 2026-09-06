@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   createInitialState,
   analyzeAnswerLocally,
@@ -252,5 +252,35 @@ describe("Live Orchestration & Multi-Agent Engine", () => {
     expect(speakers.has("product")).toBe(true);
     expect(speakers.has("behavioural")).toBe(true);
     expect(speakers.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it("Acceptance Test 7: conversational fillers and greetings maintain difficulty and do not drop counters", () => {
+    let state = createInitialState();
+    expect(state.difficulty).toBe(3);
+
+    const fillerTurn: TranscriptTurn = {
+      id: "t-fill1",
+      speaker: "candidate",
+      text: "Yes, understood.",
+      timestamp: Date.now(),
+      isFinal: true
+    };
+    const analysis1 = analyzeAnswerLocally(fillerTurn.text, [], []);
+    expect(analysis1.quality).toBe("vague");
+    state = runModeratorStep(state, fillerTurn, analysis1).updatedState;
+    expect(state.difficulty).toBe(3);
+    expect(state.consecutiveWeakCount).toBe(0);
+
+    const fillerTurn2: TranscriptTurn = {
+      id: "t-fill2",
+      speaker: "candidate",
+      text: "Okay, got it.",
+      timestamp: Date.now() + 1,
+      isFinal: true
+    };
+    const analysis2 = analyzeAnswerLocally(fillerTurn2.text, [], []);
+    state = runModeratorStep(state, fillerTurn2, analysis2).updatedState;
+    expect(state.difficulty).toBe(3);
+    expect(state.consecutiveWeakCount).toBe(0);
   });
 });

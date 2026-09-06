@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -66,18 +66,49 @@ function extractTranscriptText(item: unknown): string {
   return [value.text, value.content, value.message].find((x): x is string => typeof x === "string") || "";
 }
 
+type AgoraTranscriptItem = {
+  uid?: string;
+  turn_id?: number;
+  text?: string;
+  status?: number;
+  metadata?: { object?: string; final?: boolean; turn_status?: number } | null;
+};
+
+function transcriptKind(item: AgoraTranscriptItem): "candidate" | "agent" | "unknown" {
+  // The toolkit documents metadata.object as the reliable source discriminator.
+  if (item.metadata?.object === "user.transcription") return "candidate";
+  if (item.metadata?.object === "assistant.transcription") return "agent";
+  return "unknown";
+}
+
 function loadSetupFromStorage() {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(SETUP_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as {
+    let result: {
       candidateName?: string;
       targetRole?: string;
       jobDescription?: string;
       experienceLevel?: string;
       interviewId?: string;
-    };
+    } = {};
+
+    const raw = sessionStorage.getItem(SETUP_KEY);
+    if (raw) {
+      try {
+        result = JSON.parse(raw);
+      } catch {}
+    }
+
+    // Merge URL query params if present
+    if (typeof window.location !== "undefined" && window.location.search) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("role")) result.targetRole = params.get("role")!;
+      if (params.get("jd")) result.jobDescription = params.get("jd")!;
+      if (params.get("experience")) result.experienceLevel = params.get("experience")!;
+      if (params.get("candidate")) result.candidateName = params.get("candidate")!;
+    }
+
+    return Object.keys(result).length > 0 ? result : null;
   } catch {
     return null;
   }
@@ -105,8 +136,11 @@ export function LiveAgoraInterview() {
   const audioRef = useRef<HTMLDivElement>(null);
   const lastProcessedTextRef = useRef<string>("");
   const lastProcessedTurnIdRef = useRef<number | null>(null);
+  const processedTurnIdsRef = useRef<Set<number>>(new Set());
+  const processedFallbackEventIdsRef = useRef<Set<string>>(new Set());
   const analyzingRef = useRef(false);
   const floorBusyRef = useRef(false);
+  const floorTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const interviewStateRef = useRef(interviewState);
   interviewStateRef.current = interviewState;
@@ -135,7 +169,7 @@ export function LiveAgoraInterview() {
     if (floorBusyRef.current) return false;
     floorBusyRef.current = true;
     try {
-      await fetch("/api/interview/speak", {
+      const response = await fetch("/api/interview/speak", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -145,28 +179,57 @@ export function LiveAgoraInterview() {
           interruptable: true
         })
       });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Agora rejected the authorized speech");
+      }
+      console.info(`[EchoPanel Speech] question=${JSON.stringify(text)}`);
       return true;
     } catch (speakErr) {
       console.warn("Agora speak broadcast error:", speakErr);
       return false;
     } finally {
-      // Keep floor briefly locked to prevent concurrent TTS
       setTimeout(() => {
         floorBusyRef.current = false;
-      }, 1500);
+      }, 1200);
+    }
+  };
+
+  const interruptAutonomousAgent = async () => {
+    const agentId = sessionRef.current?.agentId;
+    if (!agentId) return;
+    try {
+      await fetch("/api/interview/interrupt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId })
+      });
+    } catch (error) {
+      // The follow-up speak call also uses INTERRUPT. Do not block analysis on a
+      // best-effort preemption failure.
+      console.warn("Agora autonomous-turn interrupt failed:", error);
     }
   };
 
   const processFinalizedCandidateTurn = async (rawText: string, rawTurnId?: number) => {
     const text = rawText.trim();
-    if (!text || GENERIC_GREETING_RE.test(text)) return;
-    if (rawTurnId != null && lastProcessedTurnIdRef.current === rawTurnId) return;
-    if (text === lastProcessedTextRef.current) return;
+    const normText = text.toLowerCase().replace(/[^\w\s]/g, "");
+    if (!text || normText.length < 3 || GENERIC_GREETING_RE.test(text)) return;
+    const fallbackEventId = `${normText}:${rawTurnId ?? "manual"}`;
+    if (rawTurnId != null && processedTurnIdsRef.current.has(rawTurnId)) return;
+    if (rawTurnId == null && processedFallbackEventIdsRef.current.has(fallbackEventId)) return;
     if (analyzingRef.current || isAnalyzing) return;
 
+    if (rawTurnId != null) processedTurnIdsRef.current.add(rawTurnId);
+    else processedFallbackEventIdsRef.current.add(fallbackEventId);
+    analyzingRef.current = true;
     lastProcessedTextRef.current = text;
     if (rawTurnId != null) lastProcessedTurnIdRef.current = rawTurnId;
-    analyzingRef.current = true;
+
+    if (floorTimerRef.current) {
+      clearTimeout(floorTimerRef.current);
+      floorTimerRef.current = null;
+    }
 
     const turnId = `turn-${Date.now()}`;
     const candidateTurn: TranscriptTurn = {
@@ -178,10 +241,16 @@ export function LiveAgoraInterview() {
       rawTurnId
     };
 
+    // Stop any pipeline-generated turn as soon as Agora finalizes the candidate.
+    // The next audio may only be the Moderator-authorized speak payload.
+    void interruptAutonomousAgent();
+    console.info(`[EchoPanel Transcript] speaker=candidate turnId=${turnId}`);
     setIsAnalyzing(true);
+    // 1. Authoritative floor moves to candidate immediately
     setInterviewState(prev => ({
       ...prev,
       activeSpeaker: "candidate",
+      floorLocked: false,
       agentStates: {
         ...prev.agentStates,
         moderator: "thinking",
@@ -206,7 +275,6 @@ export function LiveAgoraInterview() {
 
       if (res.ok && data.updatedState) {
         const nextDecision: ModeratorDecision = data.decision;
-        setInterviewState(data.updatedState);
         setDiagnostics(prev => ({
           ...prev,
           lastAnalysisMs: analysisDuration,
@@ -214,16 +282,38 @@ export function LiveAgoraInterview() {
         }));
 
         if (nextDecision?.suggestedQuestion) {
-          await broadcastAuthorizedSpeech(nextDecision.suggestedQuestion);
+          // First show the Moderator's request. Only mark a role speaking after
+          // Agora accepts the exact TTS payload, so the UI cannot claim a voice
+          // that never reached the real audio layer.
+          setInterviewState(prev => {
+            const merged = {
+              ...data.updatedState,
+              transcript: prev.transcript.some(t => t.id === turnId)
+                ? data.updatedState.transcript
+                : [...data.updatedState.transcript, candidateTurn]
+            };
+            return merged;
+          });
 
-          setTimeout(() => {
-            setInterviewState(prev =>
-              authorizeSpeaker(prev, nextDecision.nextSpeaker as InterviewerRole, nextDecision.suggestedQuestion)
-            );
-            setTimeout(() => {
-              setInterviewState(prev => releaseFloor(prev));
-            }, 4000);
-          }, 800);
+          console.info(`[EchoPanel Analysis] claims=${data.analysis?.claims?.length ?? 0}`);
+          console.info(`[EchoPanel ClaimGraph] nodes=${data.updatedState.claims?.length ?? 0}`);
+          console.info(`[EchoPanel Moderator] nextSpeaker=${nextDecision.nextSpeaker} reason=${nextDecision.reason}`);
+          const spoken = await broadcastAuthorizedSpeech(nextDecision.suggestedQuestion);
+          if (!spoken) return;
+          setInterviewState(prev => authorizeSpeaker(
+            { ...data.updatedState, transcript: prev.transcript },
+            nextDecision.nextSpeaker as InterviewerRole,
+            nextDecision.suggestedQuestion
+          ));
+
+          // Maintain floor while interviewer is speaking; yield floor when question ends
+          if (floorTimerRef.current) clearTimeout(floorTimerRef.current);
+          const speechDurationMs = Math.min(8000, Math.max(4500, nextDecision.suggestedQuestion.length * 70));
+          floorTimerRef.current = setTimeout(() => {
+            setInterviewState(prev => releaseFloor(prev));
+          }, speechDurationMs);
+        } else {
+          setInterviewState(data.updatedState);
         }
       }
     } catch (err) {
@@ -287,6 +377,8 @@ export function LiveAgoraInterview() {
     startTimeRef.current = performance.now();
     lastProcessedTextRef.current = "";
     lastProcessedTurnIdRef.current = null;
+    processedTurnIdsRef.current.clear();
+    processedFallbackEventIdsRef.current.clear();
 
     const setup = loadSetupFromStorage();
     const baseState = createStateFromSetup({
@@ -327,7 +419,8 @@ export function LiveAgoraInterview() {
           jobDescription: baseState.jobDescription,
           experienceLevel: baseState.experienceLevel,
           candidateName: baseState.candidateName,
-          greeting
+          greeting,
+          openingQuestion
         })
       });
       const agent = await agentRes.json();
@@ -377,51 +470,32 @@ export function LiveAgoraInterview() {
       });
       voiceAiRef.current = ai;
 
-      const TurnStatus = (toolkit as any).TurnStatus;
       const candidateUid = String(token.uid);
       const agentUid = String(token.agentUid || agent.agentUid);
 
       ai.on((toolkit as any).AgoraVoiceAIEvents.TRANSCRIPT_UPDATED, (items: unknown[]) => {
         if (!Array.isArray(items) || items.length === 0) return;
-        const latest = items.at(-1) as Record<string, unknown>;
-        const text = extractTranscriptText(latest);
-        if (!text) return;
+        // The toolkit sends complete history on every revision. Scan all entries,
+        // but only process a user.transcription whose metadata.final is true.
+        for (const entry of items as AgoraTranscriptItem[]) {
+          const text = extractTranscriptText(entry);
+          const kind = transcriptKind(entry);
+          const turnId = typeof entry.turn_id === "number" ? entry.turn_id : undefined;
+          const uid = String(entry.uid ?? "");
+          const isCandidate = kind === "candidate" || (kind === "unknown" && uid === candidateUid);
+          const isAgent = kind === "agent" || (kind === "unknown" && uid === agentUid);
 
-        const uid = String(latest.uid ?? "");
-        const status = latest.status as number | undefined;
-        const turnId = typeof latest.turn_id === "number" ? latest.turn_id : undefined;
-        const isFinal = status === undefined || status === TurnStatus?.END || status === 1;
-
-        // Ignore partial transcripts
-        if (!isFinal) return;
-
-        // Filter generic assistant greeting if Console still emits one
-        if (GENERIC_GREETING_RE.test(text)) {
-          setStatusMessage("Suppressed generic Agora greeting — EchoPanel owns interview flow.");
-          return;
-        }
-
-        const isCandidate = uid === candidateUid || uid === "0";
-        const isAgent = uid === agentUid || (!isCandidate && uid !== "");
-
-        if (isCandidate) {
-          void processFinalizedCandidateTurn(text, turnId);
-        } else if (isAgent) {
-          setInterviewState(prev => {
-            if (prev.transcript.some(t => t.text === text)) return prev;
-            const authorized =
-              (prev.lastDecision?.nextSpeaker as AgentId) ||
-              (prev.activeSpeaker !== "candidate" ? prev.activeSpeaker : "technical");
-            const agentTurn: TranscriptTurn = {
-              id: `turn-agora-${Date.now()}`,
-              speaker: authorized as TranscriptTurn["speaker"],
-              text,
-              timestamp: Date.now(),
-              isFinal: true,
-              rawTurnId: turnId
-            };
-            return { ...prev, transcript: [...prev.transcript, agentTurn] };
-          });
+          if (isCandidate && entry.metadata?.final === true && text) {
+            void processFinalizedCandidateTurn(text, turnId);
+          } else if (isAgent && entry.status === (toolkit as any).TurnStatus?.END && text) {
+            // EchoPanel records interviewer text when it authorizes it. Do not
+            // append the SDK's full-history echo or autonomous output as a role.
+            // If an unexpected turn arrives, interrupt it at the audio source.
+            if (!interviewStateRef.current.transcript.some(t => t.text.trim() === text.trim())) {
+              console.warn("[EchoPanel Speech] unexpected Agora agent transcript interrupted");
+              void interruptAutonomousAgent();
+            }
+          }
         }
       });
 
@@ -431,6 +505,10 @@ export function LiveAgoraInterview() {
 
       ai.on((toolkit as any).AgoraVoiceAIEvents.AGENT_INTERRUPTED, () => {
         setStatusMessage("Candidate speaking (barge-in). Agent yields floor.");
+        if (floorTimerRef.current) {
+          clearTimeout(floorTimerRef.current);
+          floorTimerRef.current = null;
+        }
         setInterviewState(prev => releaseFloor(prev));
       });
 
@@ -439,9 +517,6 @@ export function LiveAgoraInterview() {
       // EchoPanel takes ownership: initialize interview + authorize first speaker
       const init = initializeInterviewSession(baseState);
       setInterviewState(init.updatedState);
-
-      // Interrupt any Console greeting with EchoPanel opening
-      await broadcastAuthorizedSpeech(`${greeting} ${openingQuestion}`);
 
       const connDuration = Math.round(performance.now() - startTimeRef.current);
       setConnectionState("live");
@@ -689,26 +764,69 @@ export function LiveAgoraInterview() {
             {claims.length > 0 ? (
               <div className="space-y-3">
                 {claims.map(claim => (
-                  <div key={claim.id} className="rounded-xl border border-mint/30 bg-mint/5 p-4">
-                    <p className="text-xs text-slate-400 uppercase tracking-wide">
-                      CLAIM · {claim.category} · {claim.status}
-                    </p>
-                    <p className="mt-2 text-sm font-medium leading-5 text-slate-100">{claim.claim}</p>
-                    <div className="mt-3 space-y-2 text-xs">
-                      <p className={`rounded p-2 font-medium ${claim.technicalStatus === "supported" ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-200"}`}>
-                        Technical · {claim.technicalStatus === "supported" ? "✓ Supported" : `⚠ ${claim.technicalStatus}`}
-                      </p>
-                      <p className={`rounded p-2 font-medium ${claim.productStatus === "supported" ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-200"}`}>
-                        Product Impact · {claim.productStatus === "supported" ? "✓ Supported" : "⚠ Missing"}
-                      </p>
+                  <div key={claim.id} className="rounded-xl border border-mint/30 bg-mint/5 p-4 space-y-2">
+                    <div className="flex items-center justify-between text-xs text-slate-400 uppercase tracking-wide">
+                      <span className="font-semibold text-mint">CATEGORY · {claim.category}</span>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          claim.status === "resolved" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                        }`}
+                      >
+                        STATUS · {claim.status}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">CLAIM</span>
+                      <p className="mt-0.5 text-sm font-medium leading-5 text-slate-100">{claim.claim}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                      <div
+                        className={`rounded p-2 font-medium ${
+                          claim.technicalStatus === "supported"
+                            ? "bg-emerald-400/10 text-emerald-300"
+                            : "bg-amber-400/10 text-amber-200"
+                        }`}
+                      >
+                        <span className="block text-[10px] uppercase text-slate-400">Technical</span>
+                        {claim.technicalStatus === "supported" ? "✓ Supported" : `⚠ ${claim.technicalStatus}`}
+                      </div>
+                      <div
+                        className={`rounded p-2 font-medium ${
+                          claim.productStatus === "supported"
+                            ? "bg-emerald-400/10 text-emerald-300"
+                            : "bg-amber-400/10 text-amber-200"
+                        }`}
+                      >
+                        <span className="block text-[10px] uppercase text-slate-400">Product</span>
+                        {claim.productStatus === "supported" ? "✓ Supported" : "⚠ Missing"}
+                      </div>
                       {claim.behaviouralStatus && (
-                        <p className={`rounded p-2 font-medium ${claim.behaviouralStatus === "supported" ? "bg-emerald-400/10 text-emerald-300" : "bg-white/5 text-slate-300"}`}>
-                          Behavioural · {claim.behaviouralStatus}
-                        </p>
+                        <div
+                          className={`rounded p-2 font-medium ${
+                            claim.behaviouralStatus === "supported"
+                              ? "bg-emerald-400/10 text-emerald-300"
+                              : "bg-white/5 text-slate-300"
+                          }`}
+                        >
+                          <span className="block text-[10px] uppercase text-slate-400">Behavioural</span>
+                          {claim.behaviouralStatus === "supported" ? "✓ Supported" : claim.behaviouralStatus}
+                        </div>
                       )}
-                      <p className="rounded bg-white/5 p-2 text-slate-400">
-                        Evidence · turn {claim.sourceTurnId} · conf {(claim.confidence * 100).toFixed(0)}%
-                      </p>
+                      <div className="rounded bg-white/5 p-2 text-slate-300">
+                        <span className="block text-[10px] uppercase text-slate-400">Confidence</span>
+                        {(claim.confidence * 100).toFixed(0)}%
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-slate-400 pt-1 flex justify-between items-center">
+                      <span>SOURCE · turn {claim.sourceTurnId}</span>
+                      {claim.evidence && (
+                        <span className="truncate max-w-[180px] text-slate-500 italic">
+                          &quot;{claim.evidence.slice(0, 40)}...&quot;
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
