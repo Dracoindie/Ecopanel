@@ -15,7 +15,7 @@
     "agora-agent-client-toolkit": "^1.2.0",
     "agora-agents": "^2.7.0",
     "agora-rtc-sdk-ng": "^4.24.3",
-    "agora-rtm": "^2.2.3",
+    "agora-rtm": "^2.3.0",
     "agora-token": "^2.0.6",
     "clsx": "^2.1.1",
     "eslint-visitor-keys": "^3.4.3",
