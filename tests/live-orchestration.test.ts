@@ -283,4 +283,38 @@ describe("Live Orchestration & Multi-Agent Engine", () => {
     expect(state.difficulty).toBe(3);
     expect(state.consecutiveWeakCount).toBe(0);
   });
+
+  it("Acceptance Test 8 (Regression): creates ClaimGraph node linked to evidence for candidate Redis answers", () => {
+    const testAnswers = [
+      "We used Redis caching and reduced API latency by 40%.",
+      "In our service we introduced caching to bring latency down by 35%.",
+      "We deployed Redis cluster for session caching and saw a 50% drop in p95 latency."
+    ];
+
+    for (const answer of testAnswers) {
+      const state = createInitialState();
+      const turn: TranscriptTurn = {
+        id: `turn-${Date.now()}`,
+        speaker: "candidate",
+        text: answer,
+        timestamp: Date.now(),
+        isFinal: true
+      };
+
+      const analysis = analyzeAnswerLocally(turn.text, state.transcript, state.claims);
+      expect(analysis.claims.length).toBeGreaterThan(0);
+      expect(analysis.claims[0].category).toBe("performance");
+      expect(analysis.claims[0].technicalStatus).toBe("supported");
+      expect(analysis.claims[0].productStatus).toBe("missing");
+      expect(analysis.claims[0].evidence).toBe(answer);
+
+      const { updatedState, decision } = runModeratorStep(state, turn, analysis);
+      expect(updatedState.claims.length).toBeGreaterThan(0);
+      const claimNode = updatedState.claims[0];
+      expect(claimNode.evidence).toBe(answer);
+      expect(claimNode.sourceTurnId).toBe(turn.id);
+      expect(decision.nextSpeaker).toBe("product");
+    }
+  });
 });
+

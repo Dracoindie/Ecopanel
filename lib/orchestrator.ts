@@ -300,7 +300,7 @@ export function analyzeAnswerLocally(
 
   if (hasRedisLatencyClaim) {
     claims.push({
-      text: "Reduced payment API latency by 40% using Redis caching",
+      text: summarizeClaimText(trimmed) || "Reduced payment API latency by 40% using Redis caching",
       category: "performance",
       technicalStatus: "supported",
       productStatus: "missing",

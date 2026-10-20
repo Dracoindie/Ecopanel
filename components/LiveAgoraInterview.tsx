@@ -165,7 +165,7 @@ export function LiveAgoraInterview() {
 
   const broadcastAuthorizedSpeech = async (text: string) => {
     const session = sessionRef.current;
-    if (!session?.agentId || !text.trim()) return false;
+    if (!session?.agentId || !session?.channel || !session?.agentUid || !text.trim()) return false;
     if (floorBusyRef.current) return false;
     floorBusyRef.current = true;
     try {
@@ -174,6 +174,8 @@ export function LiveAgoraInterview() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agentId: session.agentId,
+          channel: session.channel,
+          agentUid: Number(session.agentUid),
           text,
           priority: "INTERRUPT",
           interruptable: true
@@ -196,14 +198,22 @@ export function LiveAgoraInterview() {
   };
 
   const interruptAutonomousAgent = async () => {
-    const agentId = sessionRef.current?.agentId;
-    if (!agentId) return;
+    const session = sessionRef.current;
+    if (!session?.agentId || !session?.channel || !session?.agentUid) return;
     try {
-      await fetch("/api/interview/interrupt", {
+      const response = await fetch("/api/interview/interrupt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId })
+        body: JSON.stringify({
+          agentId: session.agentId,
+          channel: session.channel,
+          agentUid: Number(session.agentUid)
+        })
       });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        console.warn("Agora autonomous-turn interrupt failed on server:", error.error || response.statusText);
+      }
     } catch (error) {
       // The follow-up speak call also uses INTERRUPT. Do not block analysis on a
       // best-effort preemption failure.
@@ -247,19 +257,23 @@ export function LiveAgoraInterview() {
     console.info(`[EchoPanel Transcript] speaker=candidate turnId=${turnId}`);
     setIsAnalyzing(true);
     // 1. Authoritative floor moves to candidate immediately
-    setInterviewState(prev => ({
-      ...prev,
+    const nextCandidateState: SharedInterviewState = {
+      ...interviewStateRef.current,
       activeSpeaker: "candidate",
       floorLocked: false,
       agentStates: {
-        ...prev.agentStates,
+        ...interviewStateRef.current.agentStates,
         moderator: "thinking",
         technical: "listening",
         product: "listening",
         behavioural: "listening"
       },
-      transcript: prev.transcript.some(t => t.id === turnId) ? prev.transcript : [...prev.transcript, candidateTurn]
-    }));
+      transcript: interviewStateRef.current.transcript.some(t => t.id === turnId)
+        ? interviewStateRef.current.transcript
+        : [...interviewStateRef.current.transcript, candidateTurn]
+    };
+    interviewStateRef.current = nextCandidateState;
+    setInterviewState(nextCandidateState);
 
     const analysisStart = performance.now();
 
@@ -267,7 +281,7 @@ export function LiveAgoraInterview() {
       const res = await fetch("/api/interview/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ turn: candidateTurn, state: interviewStateRef.current })
+        body: JSON.stringify({ turn: candidateTurn, state: nextCandidateState })
       });
 
       const data = await res.json();
