@@ -165,3 +165,44 @@ No `LiveInterviewSession` outside `STOPPED` → no agent query needed. All three
 **The script refuses to start** (exit 1, `REFUSED: …`) when the env file is missing, `APP_DATA_MODE` is not `database`, the database is not `ecopanel_test`, `APP_PUBLIC_URL` is not https, `scripts/assert-safe-db.mjs` rejects the URL (non-local host or non-test name), `.next-live` has no build, or port 3401 is already in use. All refusal paths were exercised with throwaway env files.
 
 **Logs:** `scratchpad/server-3401.log` (git-ignored). The server keeps running after the launching shell exits.
+
+## Full journey test — 2026-10-28, build `rgMVR2na7pnazJR-OaUyx` (3401)
+
+Recruiter on laptop, candidate on phone, via the Cloudflare tunnel; `ecopanel_test`, org `journey-test`. No email worker, no assessment worker, no OpenAI; one Agora session.
+
+| # | Step | Result | Evidence |
+|---|---|---|---|
+| 0 | Recruiter login (bootstrap script, password typed by the user, never logged) | Verified | OWNER membership + credential hash; HR session 14:19 UTC |
+| 1 | Create + publish job | Verified | "Senior Frontend Engineer" `Published`, publicVisible; only job in public careers API |
+| 2 | Apply with CV (phone) | Verified (links untested) | Candidate/Application/CvFile same org; PDF 4.3 KB, checksum; LinkedIn/GitHub left blank by the tester |
+| 3 | CV scan | Verified CLEAN | One scoped pass (`scratchpad/scan-one-cv.ts`), local ClamAV only; job SUCCEEDED; no backfill/cleanup |
+| 4 | Review + shortlist | Verified | Stage `Shortlisted`, events logged; CV opened (tester-confirmed only) |
+| 5 | Schedule + one-time link | Verified | Interview `Scheduled`; 1 invitation (72 h); `interview-link` email Queued, placeholder only |
+| 6 | Redeem link (phone) | Verified | redeemedAt 15:02:05; candidate session 2 h; join event |
+| 7 | Live AI interview | Verified | 7 answers → 7 new questions (9/9 distinct); resume after #2, GitHub/LinkedIn after #4, one neutral closing after #7; silence after |
+| 8 | End interview | Verified | Live session STOPPED, candidate session revoked, interview Completed, 1 transcript (17 turns), 1 assessment job Pending; link reuse → "expired" (DB: 1 session only) |
+| 9 | HR view + isolation | Verified | Transcript visible in HR; candidate cookie → 401 on every HR route (live HTTP check); no report link because no assessment exists (by design) |
+
+**Felt wrong (follow-ups):**
+1. Opening says "As a **Senior Senior** Frontend Engineer" — derived level is prefixed to a title that already contains it (bug from the experience-level change).
+2. Answers split into fragments (turns 2–4 s after a question) count as full answers, so the 7-answer plan finished in ~2.5 min. Consider merging quick consecutive candidate turns or a longer end-of-speech silence.
+3. Job-keyword phrasing reads awkwardly ("that work on product, frontend").
+4. Four candidate emails queued by one journey (received, shortlisted, interview-invite, interview-link); none sent. Decide which are wanted.
+5. Interview could be scheduled in the past (12:35 UTC, accepted at ~14:58 UTC); timezone defaulted to Asia/Singapore.
+6. Re-applying with the same email does not update an existing candidate's links.
+7. No report without an assessment provider; the HR UI gives no hint why the report is missing.
+
+Test artefacts: org `journey-test` (1 job, 1 application, 1 interview, 4 queued emails, 1 pending assessment job); one throwaway isolation org with 1 redeemed invitation and 1 queued email.
+
+## Fixes after the journey test (branch `mvp/live-acceptance`)
+
+| Follow-up | Fix | Tests |
+|---|---|---|
+| 1. "Senior Senior" | `roleWithLevel()` adds the level only when the title has none; used by the opening question and the agent prompt | `live-orchestration`: Senior/Junior/Lead/Staff titles, opening text |
+| 2. Fragmented answers, 2.5-min interview | **Root cause (V, transcript timing):** turns 5 and 13 finalized 2.4 s and 3.6 s after a question that takes ~7–8 s to speak, so they were continuations of the previous answer cut at the 480 ms end-of-turn threshold; each advanced the plan. **Fix:** end-of-turn silence 480→900 ms, and the client merges finalized segments into one answer until the candidate has been quiet for 1.5 s (interim speech resets the wait). A minimum answer length was rejected because turn 7 (4 words) was a genuine answer. Plan is now 8 answers (resume after #2, GitHub/LinkedIn after #5, closing after #8) | `live-flow-regression` accumulator replay of the 15:04 timing; `live-orchestration` 8-answer length for plain/technical/business/short answers (pool never exhausted early) |
+| 3. "that work on product, frontend" | Follow-ups say "that work"; the opening uses `jobFocusPhrase()` (technical areas in plain words, e.g. "React and frontend development") or a plain sentence | `live-orchestration` wording tests |
+| 5. Past interview times, Singapore default | Server rejects times more than 60 s in the past (`INTERVIEW_IN_PAST`, message shown in the dialog); database-mode scheduling defaults to `Asia/Kolkata` | `hr-assessment-dimensions`: create + reschedule rejection |
+| 7. No report, no explanation | Report page shows "Assessment provider not configured", "Assessment pending" or "Assessment failed: <safe reason>" (fixed text per failure code, never raw errors); interview page always shows a "Report status" link | `assessment-status` |
+
+Also: three DB tests used dates in early Nov 2026 (would start failing after those dates) — moved to 2027; `scratchpad/` excluded from typecheck; the isolation-check candidate session was revoked (no other test data changed).
+Still open from the journey list: #4 (four queued emails per journey), #6 (re-applying does not update links).
