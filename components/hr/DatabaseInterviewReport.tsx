@@ -11,6 +11,7 @@ import {
   TriangleAlert
 } from "lucide-react";
 import { Badge, EmptyState, ProgressBar } from "@/components/ui";
+import { assessmentStatusMessage } from "@/lib/assessment-status";
 import type { Candidate, Interview, Job } from "@/lib/domain";
 import { formatDate } from "@/lib/format";
 import { secondaryButton } from "@/lib/ui";
@@ -34,6 +35,9 @@ interface DetailResponse {
   candidate: Candidate;
   job: Job;
   assessment: ApiAssessment | null;
+  transcript?: { id: string } | null;
+  assessmentJob?: { status: string; failureCode: string | null } | null;
+  assessmentProvider?: { providerConfigured: boolean };
   error?: string;
 }
 
@@ -75,14 +79,20 @@ export function DatabaseInterviewReport({ interviewId }: { interviewId: string }
   const { interview, candidate, job, assessment } = detail;
 
   if (!assessment) {
+    const status = assessmentStatusMessage({
+      hasTranscript: Boolean(detail.transcript),
+      job: detail.assessmentJob ?? null,
+      provider: { providerConfigured: Boolean(detail.assessmentProvider?.providerConfigured) }
+    });
     return (
       <div className="mx-auto max-w-3xl space-y-5">
         <Link href={`/hr/interviews/${interview.id}`} className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-500 hover:text-white"><ArrowLeft size={12} /> Interview details</Link>
         <section className="rounded-3xl border border-white/[0.08] bg-[#0a111e]/90 p-7 text-center">
           <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-amber-300/15 bg-amber-300/[0.05]"><TriangleAlert size={20} className="text-amber-200/80" /></div>
-          <h1 className="mt-4 text-xl font-semibold text-white">No report is linked to this interview</h1>
+          <p className="mt-4"><Badge tone={status.tone}>Report not available</Badge></p>
+          <h1 className="mt-3 text-xl font-semibold text-white">{status.title}</h1>
           <p className="mx-auto mt-2 max-w-lg text-xs leading-6 text-slate-500">
-            {candidate.name} has a persisted interview for {job.title}, but no assessment has been saved. A report is not generated from scheduling data or fabricated for this page.
+            {candidate.name}, {job.title}. {status.detail} A report is never generated from scheduling data or fabricated for this page.
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <Link href={`/hr/interviews/${interview.id}`} className={secondaryButton}><ArrowLeft size={13} /> Interview details</Link>

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { saveHrAssessment } from "@/lib/server/recruitment/hr-interviews";
+import { createHrInterview, saveHrAssessment, updateHrInterview } from "@/lib/server/recruitment/hr-interviews";
 import type { HrContext } from "@/lib/server/session";
 
 const mockAssessmentCreate = vi.fn();
@@ -96,5 +96,31 @@ describe("saveHrAssessment dimension persistence", () => {
     await expect(saveHrAssessment(context, "int-1", payload({ ...validDimensions, technical: bad })))
       .rejects.toMatchObject({ status: 400, code: "INVALID_ASSESSMENT" });
     expect(mockAssessmentCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("interview scheduling time", () => {
+  const schedule = (scheduledAt: string) => ({
+    applicationId: "app-1",
+    scheduledAt,
+    durationMinutes: 30,
+    timezone: "Asia/Kolkata",
+    round: "Live panel",
+    notes: ""
+  });
+
+  it("rejects creating an interview in the past before touching the database", async () => {
+    const past = new Date(Date.now() - 2 * 60 * 60_000).toISOString();
+    await expect(createHrInterview(context, schedule(past))).rejects.toMatchObject({ code: "INTERVIEW_IN_PAST", status: 400 });
+  });
+
+  it("rejects rescheduling an interview into the past", async () => {
+    const past = new Date(Date.now() - 5 * 60_000).toISOString();
+    await expect(updateHrInterview(context, "int-1", schedule(past))).rejects.toMatchObject({ code: "INTERVIEW_IN_PAST" });
+  });
+
+  it("explains the problem in words a recruiter can act on", async () => {
+    const past = new Date(Date.now() - 60 * 60_000).toISOString();
+    await expect(createHrInterview(context, schedule(past))).rejects.toThrow(/already passed.*future date and time/);
   });
 });

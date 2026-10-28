@@ -139,7 +139,7 @@ suite("Candidate interview invitations (TEST_DATABASE_URL)", () => {
     };
     const [appA, appB] = await Promise.all([applicationFor(orgA, "a"), applicationFor(orgB, "b")]);
     applicationA = appA.id;
-    const schedule = { scheduledAt: "2026-11-05T10:00:00.000Z", durationMinutes: 45, timezone: "Europe/London", round: "Live panel", notes: "" };
+    const schedule = { scheduledAt: "2027-11-05T10:00:00.000Z", durationMinutes: 45, timezone: "Europe/London", round: "Live panel", notes: "" };
     interviewA = (await interviewService.createHrInterview(contextA(), { applicationId: appA.id, ...schedule })).id;
     interviewB = (await interviewService.createHrInterview(contextB(), { applicationId: appB.id, ...schedule })).id;
   });

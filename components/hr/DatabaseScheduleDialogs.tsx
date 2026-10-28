@@ -20,7 +20,9 @@ export interface InterviewOption {
   job: { id: string; title: string };
 }
 
-const TIMEZONES = ["Europe/London", "America/New_York", "America/Los_Angeles", "Europe/Berlin", "Asia/Singapore"];
+/** Recruiters are India-based; other zones remain selectable. */
+const DEFAULT_TIMEZONE = "Asia/Kolkata";
+const TIMEZONES = ["Asia/Kolkata", "Europe/London", "America/New_York", "America/Los_Angeles", "Europe/Berlin", "Asia/Singapore"];
 const ROUNDS = ["Adaptive voice panel", "Technical follow-up", "Product panel", "Enterprise product panel", "Frontend systems panel"];
 
 function timezoneOptions(current: string) {
@@ -56,7 +58,7 @@ export function DatabaseScheduleInterviewDialog({
   const [date, setDate] = useState(defaultDate());
   const [time, setTime] = useState("10:00");
   const [duration, setDuration] = useState("30");
-  const [timezone, setTimezone] = useState("Europe/London");
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [round, setRound] = useState(ROUNDS[0]);
   const [notes, setNotes] = useState("");
   const [notify, setNotify] = useState(true);
@@ -214,7 +216,7 @@ export function DatabaseRescheduleInterviewDialog({
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [duration, setDuration] = useState("30");
-  const [timezone, setTimezone] = useState("Europe/London");
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [round, setRound] = useState(ROUNDS[0]);
   const [notes, setNotes] = useState("");
   const [notify, setNotify] = useState(true);

@@ -10,7 +10,7 @@ import { buildApplicationRecords } from "@/lib/demo-service";
 import { formatDate, formatTime } from "@/lib/format";
 import { inputClass, labelClass, primaryButton, secondaryButton, selectClass } from "@/lib/ui";
 
-const TIMEZONES = ["Europe/London", "America/New_York", "America/Los_Angeles", "Europe/Berlin", "Asia/Singapore"];
+const TIMEZONES = ["Asia/Kolkata", "Europe/London", "America/New_York", "America/Los_Angeles", "Europe/Berlin", "Asia/Singapore"];
 const ROUNDS = ["Adaptive voice panel", "Technical follow-up", "Product panel", "Enterprise product panel", "Frontend systems panel"];
 
 function ScheduleFields({

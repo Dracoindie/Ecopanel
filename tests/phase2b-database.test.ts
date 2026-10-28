@@ -147,7 +147,7 @@ suite("Phase 2B HR persistence (TEST_DATABASE_URL)", () => {
   it("persists scheduling, status transitions, and a real assessment only after completion", async () => {
     const interview = await interviewService.createHrInterview(contextA(), {
       applicationId: applicationA,
-      scheduledAt: "2026-11-03T10:00:00.000Z",
+      scheduledAt: "2027-11-03T10:00:00.000Z",
       durationMinutes: 45,
       timezone: "Europe/London",
       round: "Technical follow-up",
@@ -158,13 +158,13 @@ suite("Phase 2B HR persistence (TEST_DATABASE_URL)", () => {
     expect(application.stage).toBe("Interview");
 
     const moved = await interviewService.updateHrInterview(contextA(), interview.id, {
-      scheduledAt: "2026-11-04T11:30:00.000Z",
+      scheduledAt: "2027-11-04T11:30:00.000Z",
       durationMinutes: 60,
       timezone: "Europe/London",
       round: "Technical follow-up",
       notes: "Rescheduled for the panel."
     });
-    expect(moved.scheduledAt).toBe("2026-11-04T11:30:00.000Z");
+    expect(moved.scheduledAt).toBe("2027-11-04T11:30:00.000Z");
 
     await expect(interviewService.saveHrAssessment(contextA(), interview.id, {
       overallScore: 7.5,

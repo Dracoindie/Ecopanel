@@ -136,12 +136,18 @@ function optionalText(value: unknown, label: string, max: number) {
   return normalized;
 }
 
-function parseScheduleInput(input: unknown, requireApplication: boolean) {
+/** Tolerance for clock skew and form latency when rejecting past interview times. */
+const PAST_SCHEDULE_TOLERANCE_MS = 60_000;
+
+function parseScheduleInput(input: unknown, requireApplication: boolean, now = new Date()) {
   if (!input || typeof input !== "object") throw new HrInterviewError("Send an interview payload.", 400, "INVALID_INTERVIEW");
   const raw = input as Record<string, unknown>;
   const scheduledAtRaw = text(raw.scheduledAt, "Interview date", 10, 40);
   const scheduledAt = new Date(scheduledAtRaw);
   if (Number.isNaN(scheduledAt.getTime())) throw new HrInterviewError("Choose a valid interview date.", 400, "INVALID_INTERVIEW");
+  if (scheduledAt.getTime() < now.getTime() - PAST_SCHEDULE_TOLERANCE_MS) {
+    throw new HrInterviewError("That time has already passed. Choose a future date and time for the interview.", 400, "INTERVIEW_IN_PAST");
+  }
   const durationMinutes = Number(raw.durationMinutes);
   if (!Number.isInteger(durationMinutes) || durationMinutes < 10 || durationMinutes > 240) {
     throw new HrInterviewError("Interview duration must be between 10 and 240 minutes.", 400, "INVALID_INTERVIEW");

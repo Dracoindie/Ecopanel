@@ -152,7 +152,9 @@ export function DatabaseInterviewDetail({ interviewId }: { interviewId: string }
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {assessment && <Link href={`/hr/interviews/${interview.id}/report`} className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink"><FileText size={13} /> Open report</Link>}
+            {assessment
+              ? <Link href={`/hr/interviews/${interview.id}/report`} className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink"><FileText size={13} /> Open report</Link>
+              : <Link href={`/hr/interviews/${interview.id}/report`} className={secondaryButton}><FileText size={13} /> Report status</Link>}
             <Link href={`/setup?interviewId=${encodeURIComponent(interview.id)}`} className="inline-flex items-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.035] px-3.5 py-2.5 text-xs font-medium text-slate-300 hover:text-white"><Mic size={13} /> Live room</Link>
             {interview.status === "Scheduled" && <>
               <button onClick={sendCandidateLink} disabled={busy} className={secondaryButton}><Mail size={13} /> Send candidate link</button>
