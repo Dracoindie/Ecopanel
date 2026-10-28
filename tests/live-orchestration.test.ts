@@ -378,7 +378,7 @@ describe("Live client turn sequence (recorded repeated-question loop)", () => {
     }
   });
 
-  it("covers the resume and GitHub/LinkedIn questions, then closes with the confirmation-email message", () => {
+  it("covers the resume and GitHub/LinkedIn questions, then closes with a neutral next-steps message", () => {
     let state = freshState();
     const decisions: ModeratorDecision[] = [];
     for (const [index, text] of latestSessionAnswers.slice(0, LIVE_INTERVIEW_ANSWER_LIMIT).entries()) {
@@ -391,7 +391,7 @@ describe("Live client turn sequence (recorded repeated-question loop)", () => {
     const closing = decisions[LIVE_INTERVIEW_ANSWER_LIMIT - 1];
     expect(closing).toMatchObject({ closing: true, nextSpeaker: "moderator" });
     expect(closing.suggestedQuestion).toBe(
-      "Thank you for your time today, Test Candidate. That completes your interview for the Live Test Engineer role. Please wait for a confirmation email from the hiring team with the next steps. You can end the interview now."
+      "Thank you for your time today, Test Candidate. That completes your interview for the Live Test Engineer role. The hiring team will review your answers and be in touch about next steps. You can end the interview now."
     );
     expect(state.interviewComplete).toBe(true);
 
@@ -439,7 +439,9 @@ describe("Live client turn sequence (recorded repeated-question loop)", () => {
     expect(state.interviewComplete).toBe(true);
     expect(closing.closing).toBe(true);
     expect(closing.nextSpeaker).toBe("moderator");
-    expect(closing.suggestedQuestion).toMatch(/^Thank you for your time today, Test Candidate\..*confirmation email/);
+    expect(closing.suggestedQuestion).toMatch(/^Thank you for your time today, Test Candidate\..*be in touch about next steps/);
+    // The closing makes no promise the system cannot keep (no email is sent automatically).
+    expect(closing.suggestedQuestion).not.toMatch(/email/i);
     expect(state.transcript.filter(t => t.text === closing.suggestedQuestion)).toHaveLength(1);
     // No question was repeated before closing, including one that differs only
     // in its "At difficulty N/5" prefix (heard twice in the 12:20 live test).

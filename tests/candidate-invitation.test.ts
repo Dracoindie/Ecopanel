@@ -115,7 +115,13 @@ describe("candidate interview invitations", () => {
     const redeemed = await access.redeemCandidateInvitation(token, NOW);
     const session = await access.getCandidateSession(cookieHeaders(redeemed.sessionToken), NOW);
 
-    expect(redeemed.interview).toMatchObject({ id: "int-1", candidateName: "Ada Candidate", jobTitle: "Platform Engineer" });
+    expect(redeemed.interview).toMatchObject({
+      id: "int-1",
+      candidateName: "Ada Candidate",
+      jobTitle: "Platform Engineer",
+      jobDescription: "Build platforms.",
+      experienceLevel: "Mid"
+    });
     expect(session).toMatchObject({ organizationId: "org-1", interviewId: "int-1", applicationId: "app-1" });
     expect(redeemed.expiresAt.getTime() - NOW.getTime()).toBe(access.CANDIDATE_SESSION_TTL_MS);
     expect(JSON.stringify(store.sessions)).not.toContain(redeemed.sessionToken);
@@ -248,5 +254,44 @@ describe("invitation link base URL", () => {
   it("allows local links only when explicitly enabled outside production", () => {
     withUrl("http://localhost:3400", "true");
     expect(access.publicInvitationBaseUrl()).toBe("http://localhost:3400");
+  });
+
+  describe("runtime APP_PUBLIC_URL (a new tunnel needs a restart, not a rebuild)", () => {
+    const originalRuntime = process.env.APP_PUBLIC_URL;
+    afterEach(() => {
+      if (originalRuntime === undefined) delete process.env.APP_PUBLIC_URL; else process.env.APP_PUBLIC_URL = originalRuntime;
+    });
+
+    it("takes precedence over the build-time NEXT_PUBLIC_APP_URL", () => {
+      withUrl("https://old-tunnel.example.test");
+      process.env.APP_PUBLIC_URL = "https://new-tunnel.example.test/";
+      expect(access.publicInvitationBaseUrl()).toBe("https://new-tunnel.example.test");
+      expect(access.invitationJoinUrl("A".repeat(43))).toMatch(/^https:\/\/new-tunnel\.example\.test\/interview\/join#token=/);
+    });
+
+    it("is held to the same public HTTPS rule", () => {
+      withUrl("https://hire.example.test");
+      process.env.APP_PUBLIC_URL = "http://localhost:3401";
+      expect(access.publicInvitationBaseUrl()).toBeNull();
+    });
+  });
+});
+
+describe("live interview experience level", () => {
+  it.each([
+    [{ title: "Platform Engineer", employmentType: "Full-time" }, "Mid"],
+    [{ title: "Senior Backend Engineer", employmentType: "Full-time" }, "Senior"],
+    [{ title: "Lead QA Engineer" }, "Senior"],
+    [{ title: "Staff Software Engineer" }, "Staff"],
+    [{ title: "Junior Data Analyst" }, "Junior"],
+    [{ title: "Software Engineer", employmentType: "Internship" }, "Junior"],
+    [{ title: "Graduate Developer", employmentType: null }, "Junior"]
+  ])("derives %o as %s", (job, level) => {
+    expect(access.experienceLevelForJob(job)).toBe(level);
+  });
+
+  it("does not match level words inside other words", () => {
+    expect(access.experienceLevelForJob({ title: "Leadership Programme Coordinator" })).toBe("Mid");
+    expect(access.experienceLevelForJob({ title: "Internal Tools Engineer" })).toBe("Mid");
   });
 });

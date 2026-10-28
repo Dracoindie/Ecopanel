@@ -258,7 +258,7 @@ const QUESTION_BANK: Record<InterviewerRole, Array<(state: SharedInterviewState)
 };
 
 function closingMessage(state: SharedInterviewState): string {
-  return `Thank you for your time today, ${state.candidateName}. That completes your interview for the ${state.targetRole} role. Please wait for a confirmation email from the hiring team with the next steps. You can end the interview now.`;
+  return `Thank you for your time today, ${state.candidateName}. That completes your interview for the ${state.targetRole} role. The hiring team will review your answers and be in touch about next steps. You can end the interview now.`;
 }
 
 function summarizeClaimText(text: string): string {

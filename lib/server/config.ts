@@ -21,8 +21,17 @@ export function isDatabaseMode() {
   return getDataMode() === "database";
 }
 
+/**
+ * Public base URL as configured at request time. Next.js inlines NEXT_PUBLIC_*
+ * values into the build, so APP_PUBLIC_URL (read at runtime) takes precedence:
+ * a new tunnel address then needs only a restart, not a rebuild.
+ */
+export function configuredAppUrl(): string | undefined {
+  return process.env.APP_PUBLIC_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim() || undefined;
+}
+
 export function getAppUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
+  return configuredAppUrl() || "http://localhost:3000";
 }
 
 export function getAuthSecret() {

@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Prisma } from "@prisma/client";
-import { getAuthSecret } from "@/lib/server/config";
+import { configuredAppUrl, getAuthSecret } from "@/lib/server/config";
 import { getPrisma } from "@/lib/server/db";
 
 /** Interview statuses a candidate can still join. */
@@ -49,11 +49,11 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1", "0.0.0.0"
 /**
  * Base URL a candidate's own device can open. getAppUrl() falls back to
  * localhost, which would email links that only work on the sender's machine,
- * so links require an explicit public HTTPS NEXT_PUBLIC_APP_URL.
+ * so links require an explicit public HTTPS APP_PUBLIC_URL (or NEXT_PUBLIC_APP_URL).
  * ALLOW_LOCAL_INVITATION_LINKS=true permits local links for development only.
  */
 export function publicInvitationBaseUrl(): string | null {
-  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  const raw = configuredAppUrl();
   if (!raw) return null;
   let url: URL;
   try {
@@ -151,7 +151,7 @@ export async function redeemCandidateInvitation(rawToken: unknown, now = new Dat
       where: { tokenHash: hashToken(rawToken) },
       include: {
         interview: { select: { id: true, organizationId: true, applicationId: true, status: true } },
-        application: { include: { candidate: { select: { name: true } }, job: { select: { title: true, description: true } } } }
+        application: { include: { candidate: { select: { name: true } }, job: { select: { title: true, description: true, employmentType: true } } } }
       }
     });
     if (
@@ -204,10 +204,23 @@ export async function redeemCandidateInvitation(rawToken: unknown, now = new Dat
         id: invitation.interviewId,
         candidateName: invitation.application.candidate.name,
         jobTitle: invitation.application.job.title,
-        jobDescription: invitation.application.job.description
+        jobDescription: invitation.application.job.description,
+        experienceLevel: experienceLevelForJob(invitation.application.job)
       }
     };
   });
+}
+
+/**
+ * Experience level for the live interview. Jobs have no explicit level field,
+ * so it is read from the title and employment type, defaulting to "Mid".
+ */
+export function experienceLevelForJob(job: { title: string; employmentType?: string | null }) {
+  const text = `${job.title} ${job.employmentType ?? ""}`.toLowerCase();
+  if (/\b(intern|internship|graduate|junior|jr|entry[- ]level|trainee|apprentice)\b/.test(text)) return "Junior";
+  if (/\b(staff|principal|distinguished)\b/.test(text)) return "Staff";
+  if (/\b(senior|sr|lead)\b/.test(text)) return "Senior";
+  return "Mid";
 }
 
 export function readCandidateSessionToken(headers: Headers) {

@@ -7,7 +7,7 @@ import { Mic, ShieldCheck, TriangleAlert } from "lucide-react";
 const SETUP_KEY = "echopanel-interview-setup";
 
 type Redeemed = {
-  interview: { id: string; candidateName: string; jobTitle: string; jobDescription: string };
+  interview: { id: string; candidateName: string; jobTitle: string; jobDescription: string; experienceLevel?: string };
   expiresAt: string;
 };
 
@@ -60,7 +60,7 @@ export default function JoinInterview() {
         candidateName: joined.interview.candidateName,
         targetRole: joined.interview.jobTitle,
         jobDescription: joined.interview.jobDescription.slice(0, 4000),
-        experienceLevel: "Mid",
+        experienceLevel: joined.interview.experienceLevel || "Mid",
         panelMode: "Full Panel",
         duration: "20 min",
         interviewId: joined.interview.id,
