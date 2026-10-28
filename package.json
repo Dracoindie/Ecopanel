@@ -8,15 +8,34 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "bootstrap:admin": "tsx prisma/bootstrap-admin.ts",
+    "cv:scan-retry": "tsx scripts/scan-cvs.ts",
+    "cv:worker": "tsx scripts/cv-worker.ts",
+    "email:worker": "tsx scripts/email-worker.ts",
+    "calendar:worker": "tsx scripts/calendar-worker.ts",
+    "test:scanner:real": "vitest run tests/real-clamav.test.ts",
+    "test:e2e": "playwright test",
+    "e2e:db:prepare": "node scripts/prepare-e2e-db.mjs",
+    "build:e2e": "node scripts/build-e2e.mjs"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@agora-js/media": "^4.23.2",
+    "@prisma/client": "^6.19.3",
     "agora-agent-client-toolkit": "^1.2.0",
     "agora-agents": "^2.7.0",
     "agora-rtc-sdk-ng": "^4.24.3",
     "agora-rtm": "^2.3.0",
     "agora-token": "^2.0.6",
+    "better-auth": "^1.7.13",
     "clsx": "^2.1.1",
     "eslint-visitor-keys": "^3.4.3",
     "form-data": "^4.0.6",
@@ -30,6 +49,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
@@ -37,7 +57,9 @@
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.21",
     "postcss": "^8.4.49",
+    "prisma": "^6.19.3",
     "tailwindcss": "^3.4.16",
+    "tsx": "^4.20.6",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

@@ -4,9 +4,42 @@
 
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; background: #080d18; color: #edf4ff; font-family: Arial, Helvetica, sans-serif; }
+html { width: 100%; min-height: 100%; background: #060a12; font-size: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { width: 100%; margin: 0; min-height: 100vh; background: #080d18; color: #edf4ff; font-family: "Segoe UI Variable", "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 body:before { content:""; position:fixed; inset:0; pointer-events:none; background:radial-gradient(circle at 12% 12%, rgba(108,96,255,.18), transparent 30%),radial-gradient(circle at 86% 25%, rgba(80,219,178,.11), transparent 25%); }
+::selection { background: rgba(124,245,197,.22); color: #f7fffc; }
 .glass { border: 1px solid rgba(180,205,255,.12); background: rgba(17,26,45,.72); backdrop-filter: blur(18px); }
 .gridline { background-image: linear-gradient(rgba(140,170,255,.045) 1px, transparent 1px), linear-gradient(90deg,rgba(140,170,255,.045) 1px, transparent 1px); background-size: 44px 44px; }
 .pulse { animation: pulse 1.6s ease-in-out infinite; } @keyframes pulse { 50% { opacity:.45; transform:scale(.96) } }
 .slide { animation: slide .45s ease both; } @keyframes slide { from { opacity:0; transform: translateY(8px) } }
+.surface { border: 1px solid rgba(180,205,255,.09); background: linear-gradient(180deg, rgba(17,26,45,.82), rgba(8,13,24,.78)); box-shadow: 0 24px 80px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.03); backdrop-filter: blur(20px); }
+.stage-glow { background: radial-gradient(ellipse at 50% 0%, rgba(124,245,197,.065), transparent 62%), radial-gradient(ellipse at 82% 10%, rgba(156,140,255,.05), transparent 48%); }
+.page-noise { background-image: radial-gradient(rgba(168,190,230,.2) .55px, transparent .55px); background-size: 5px 5px; mix-blend-mode: soft-light; }
+.status-pulse { animation: status-pulse 1.7s ease-in-out infinite; } @keyframes status-pulse { 50% { opacity:.4; } }
+.orb-breathe { animation: orb-breathe 5.5s ease-in-out infinite; } @keyframes orb-breathe { 50% { opacity:.55; transform: translate(-50%, -50%) scale(1.025); } }
+.signal-bar { animation: signal-bar .9s ease-in-out infinite alternate; transform-origin: center; } @keyframes signal-bar { from { transform: scaleY(.55); opacity:.65; } to { transform: scaleY(1); opacity:1; } }
+.scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.22) transparent; }
+.scrollbar-thin::-webkit-scrollbar { width: 5px; height: 5px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(148,163,184,.2); border-radius: 999px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,.34); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Shared product UI */
+.font-display { font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, Cambria, serif; }
+.dot-grid { background-image: radial-gradient(rgba(148,163,184,.14) .6px, transparent .6px); background-size: 18px 18px; }
+.careers-glow { background: radial-gradient(circle at 72% 28%, rgba(156,140,255,.16), transparent 28%), radial-gradient(circle at 60% 62%, rgba(124,245,197,.08), transparent 24%), radial-gradient(circle at 50% 100%, rgba(245,184,91,.06), transparent 30%); }
+.fade-up { animation: fade-up .5s cubic-bezier(.22,.8,.32,1) both; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } }
+.hr-table tbody tr { transition: background-color .15s ease; }
+.hr-table tbody tr:hover { background: rgba(255,255,255,.018); }
+.hr-table td, .hr-table th { white-space: nowrap; }
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+:focus-visible { outline: 2px solid rgba(124,245,197,.6); outline-offset: 2px; }
+input[type="date"], input[type="time"] { color-scheme: dark; }
+@media (max-width: 639px) {
+  .hide-mobile { display: none !important; }
+}

@@ -1,0 +1,706 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum HrRole {
+  OWNER
+  ADMIN
+  RECRUITER
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships          Membership[]
+  jobs                 Job[]
+  candidates           Candidate[]
+  applications         Application[]
+  cvFiles              CvFile[]
+  notes                ApplicationNote[]
+  events               ApplicationEvent[]
+  interviews           Interview[]
+  assessments          Assessment[]
+  emailTemplates       EmailTemplate[]
+  emailMessages        EmailMessage[]
+  emailEvents          EmailDeliveryEvent[]
+  mailSettings         MailSettings?
+  calendarEvents       CalendarEvent[]
+  calendarConnection   CalendarConnection?
+  calendarOAuthStates  CalendarOAuthState[]
+  liveSessions         LiveInterviewSession[]
+  interviewTranscripts InterviewTranscript[]
+  assessmentJobs       AssessmentJob[]
+  candidateInvitations CandidateInvitation[]
+  candidateSessions    CandidateSession[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions             Session[]
+  accounts             Account[]
+  memberships          Membership[]
+  notes                ApplicationNote[]
+  events               ApplicationEvent[]
+  calendarConnections  CalendarConnection[]
+  calendarOAuthStates  CalendarOAuthState[]
+  liveSessions         LiveInterviewSession[]
+  candidateInvitations CandidateInvitation[]
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           HrRole   @default(RECRUITER)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId, role])
+}
+
+model Job {
+  id               String    @id
+  organizationId   String
+  title            String
+  department       String
+  location         String
+  workplace        String
+  employmentType   String
+  shortDescription String
+  description      String
+  responsibilities Json
+  qualifications   Json
+  salaryRange      String
+  status           String    @default("Draft")
+  publicVisible    Boolean   @default(false)
+  publishedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@index([organizationId, status, publicVisible])
+  @@index([publicVisible, status, publishedAt])
+}
+
+model Candidate {
+  id              String   @id @default(uuid())
+  organizationId  String
+  name            String
+  email           String
+  emailNormalized String
+  phone           String
+  location        String   @default("Not provided")
+  headline        String   @default("")
+  linkedinUrl     String   @default("")
+  githubUrl       String   @default("")
+  portfolioUrl    String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@unique([organizationId, emailNormalized])
+  @@index([organizationId, email])
+}
+
+model Application {
+  id              String   @id @default(cuid())
+  publicReference String   @unique @default(uuid())
+  organizationId  String
+  jobId           String
+  candidateId     String
+  stage           String   @default("New")
+  source          String   @default("Careers site")
+  coverLetter     String
+  consentVersion  String
+  consentAt       DateTime
+  idempotencyKey  String?  @unique
+  appliedAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  job                  Job                   @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  candidate            Candidate             @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  cvFile               CvFile?
+  notes                ApplicationNote[]
+  events               ApplicationEvent[]
+  interviews           Interview[]
+  assessments          Assessment[]
+  emailMessages        EmailMessage[]
+  candidateInvitations CandidateInvitation[]
+  candidateSessions    CandidateSession[]
+
+  @@unique([jobId, candidateId])
+  @@index([organizationId, appliedAt])
+  @@index([organizationId, stage])
+  @@index([candidateId])
+}
+
+model CvFile {
+  id               String    @id @default(uuid())
+  organizationId   String
+  applicationId    String    @unique
+  storageKey       String    @unique
+  originalFilename String
+  mimeType         String
+  sizeBytes        Int
+  checksum         String
+  scanStatus       String    @default("UNSCANNED")
+  scanProvider     String?
+  scanDetail       String?
+  scanAttemptId    String?
+  scanStartedAt    DateTime?
+  scanCompletedAt  DateTime?
+  scanAttempts     Int       @default(0)
+  uploadedAt       DateTime  @default(now())
+  deletedAt        DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  application  Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  scanJob      CvScanJob?
+
+  @@index([organizationId, scanStatus])
+  @@index([scanStatus, scanStartedAt])
+}
+
+model CvScanJob {
+  id             String    @id @default(uuid())
+  cvFileId       String    @unique
+  organizationId String
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(5)
+  availableAt    DateTime  @default(now())
+  leaseOwner     String?
+  leaseExpiresAt DateTime?
+  lastError      String?
+  lastAttemptAt  DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  cvFile CvFile @relation(fields: [cvFileId], references: [id], onDelete: Cascade)
+
+  @@index([status, availableAt])
+  @@index([leaseExpiresAt])
+  @@index([organizationId, status])
+}
+
+model RateLimitBucket {
+  key         String   @id
+  scope       String
+  count       Int      @default(0)
+  windowStart DateTime
+  expiresAt   DateTime
+  updatedAt   DateTime @updatedAt
+
+  @@index([expiresAt])
+  @@index([scope])
+}
+
+model ApplicationNote {
+  id             String   @id @default(cuid())
+  organizationId String
+  applicationId  String
+  authorUserId   String?
+  authorLabel    String
+  body           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  application  Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  author       User?        @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId, createdAt])
+  @@index([organizationId])
+}
+
+model ApplicationEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  applicationId  String
+  type           String
+  label          String
+  detail         String   @default("")
+  actorUserId    String?
+  actorLabel     String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  application  Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId, createdAt])
+  @@index([organizationId, type])
+}
+
+model Interview {
+  id              String   @id @default(cuid())
+  organizationId  String
+  applicationId   String
+  scheduledAt     DateTime
+  durationMinutes Int
+  timezone        String
+  round           String
+  status          String   @default("Scheduled")
+  notes           String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization         Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  application          Application            @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  assessments          Assessment[]
+  transcripts          InterviewTranscript[]
+  assessmentJobs       AssessmentJob[]
+  calendarEvents       CalendarEvent[]
+  liveSessions         LiveInterviewSession[]
+  emailMessages        EmailMessage[]
+  candidateInvitations CandidateInvitation[]
+  candidateSessions    CandidateSession[]
+
+  @@index([organizationId, scheduledAt])
+  @@index([applicationId])
+}
+
+model Assessment {
+  id                 String    @id @default(cuid())
+  organizationId     String
+  applicationId      String
+  interviewId        String?
+  transcriptId       String?
+  transcriptVersion  Int?
+  transcriptChecksum String?
+  overallScore       Float
+  recommendation     String
+  summary            String
+  dimensions         Json
+  strengths          Json
+  risks              Json
+  unresolvedConcerns Json
+  generatedAt        DateTime  @default(now())
+  source             String    @default("DEMO")
+  isDemo             Boolean   @default(true)
+  provider           String?
+  model              String?
+  rubricVersion      String?
+  promptVersion      String?
+  reviewStatus       String    @default("Pending")
+  reviewedAt         DateTime?
+  reviewedByUserId   String?
+  reviewNote         String?
+  validation         Json?
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  application  Application          @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interview    Interview?           @relation(fields: [interviewId], references: [id], onDelete: SetNull)
+  transcript   InterviewTranscript? @relation(fields: [transcriptId], references: [id], onDelete: SetNull)
+  job          AssessmentJob?
+
+  @@index([organizationId, applicationId])
+  @@index([interviewId, generatedAt])
+  @@index([organizationId, generatedAt])
+}
+
+model InterviewTranscript {
+  id              String   @id @default(cuid())
+  organizationId  String
+  interviewId     String
+  version         Int
+  source          String   @default("AGORA_CLIENT_FINAL")
+  checksum        String
+  turnCount       Int
+  turns           Json
+  capturedAt      DateTime @default(now())
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  interview      Interview       @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  assessments    Assessment[]
+  assessmentJobs AssessmentJob[]
+
+  @@unique([interviewId, version])
+  @@index([organizationId, interviewId, version])
+  @@index([checksum])
+}
+
+model AssessmentJob {
+  id                 String    @id @default(cuid())
+  organizationId     String
+  applicationId      String
+  interviewId        String
+  transcriptId       String
+  transcriptVersion  Int
+  transcriptChecksum String
+  rubricVersion      String
+  promptVersion      String
+  dedupeKey          String    @unique
+  status             String    @default("Pending")
+  attempts           Int       @default(0)
+  maxAttempts        Int       @default(3)
+  availableAt        DateTime  @default(now())
+  leaseOwner         String?
+  leaseExpiresAt     DateTime?
+  lastAttemptAt      DateTime?
+  failureCode        String?
+  lastError          String?
+  provider           String?
+  model              String?
+  requestedByUserId  String?
+  assessmentId       String?   @unique
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  startedAt          DateTime?
+  completedAt        DateTime?
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  interview    Interview           @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  transcript   InterviewTranscript @relation(fields: [transcriptId], references: [id], onDelete: Cascade)
+  assessment   Assessment?         @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+
+  @@index([status, availableAt])
+  @@index([leaseExpiresAt])
+  @@index([organizationId, status])
+  @@index([interviewId, createdAt])
+}
+
+model EmailTemplate {
+  id             String   @id
+  organizationId String
+  name           String
+  category       String
+  description    String   @default("")
+  subject        String
+  body           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messages     EmailMessage[]
+
+  @@index([organizationId, category])
+}
+
+model EmailMessage {
+  id                String    @id @default(cuid())
+  organizationId    String
+  applicationId     String?
+  candidateId       String?
+  jobId             String?
+  interviewId       String?
+  templateId        String?
+  kind              String    @default("manual")
+  recipientName     String
+  recipientEmail    String
+  subject           String
+  body              String
+  preview           String
+  status            String    @default("Draft")
+  providerName      String?
+  providerMode      String?
+  providerMessageId String?
+  fromAddress       String?
+  replyTo           String?
+  failureCode       String?
+  lastError         String?
+  attempts          Int       @default(0)
+  maxAttempts       Int       @default(5)
+  availableAt       DateTime  @default(now())
+  lockedBy          String?
+  lockedUntil       DateTime?
+  lastAttemptAt     DateTime?
+  acceptedAt        DateTime?
+  deliveredAt       DateTime?
+  bouncedAt         DateTime?
+  complainedAt      DateTime?
+  failedAt          DateTime?
+  cancelledAt       DateTime?
+  lastEventAt       DateTime?
+  sentAt            DateTime?
+  isDemo            Boolean   @default(true)
+  attachments       Json      @default("[]")
+  idempotencyKey    String?   @unique
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  application  Application?         @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  interview    Interview?           @relation(fields: [interviewId], references: [id], onDelete: SetNull)
+  template     EmailTemplate?       @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  events       EmailDeliveryEvent[]
+
+  @@index([organizationId, createdAt])
+  @@index([applicationId])
+  @@index([interviewId])
+  @@index([status, availableAt])
+  @@index([lockedUntil])
+  @@index([providerMessageId])
+  @@index([organizationId, kind])
+}
+
+model EmailDeliveryEvent {
+  id                String   @id @default(cuid())
+  organizationId    String
+  emailMessageId    String
+  provider          String
+  providerEventId   String   @unique
+  providerMessageId String?
+  type              String
+  occurredAt        DateTime
+  receivedAt        DateTime @default(now())
+  metadata          Json?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  message      EmailMessage @relation(fields: [emailMessageId], references: [id], onDelete: Cascade)
+
+  @@index([emailMessageId, occurredAt])
+  @@index([organizationId, receivedAt])
+}
+
+model MailSettings {
+  organizationId String   @id
+  senderName     String
+  senderAddress  String
+  replyTo        String
+  signature      String   @default("")
+  provider       String   @default("Not connected")
+  deliveryStatus String   @default("Demo mode")
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model CalendarConnection {
+  id                    String    @id @default(cuid())
+  organizationId        String    @unique
+  provider              String    @default("google")
+  providerAccountId     String?
+  accountEmail          String?
+  calendarId            String    @default("primary")
+  accessTokenEncrypted  String?
+  refreshTokenEncrypted String?
+  accessTokenExpiresAt  DateTime?
+  scope                 String    @default("")
+  tokenType             String    @default("Bearer")
+  status                String    @default("Connected")
+  connectedByUserId     String?
+  lastVerifiedAt        DateTime?
+  lastRefreshedAt       DateTime?
+  disconnectedAt        DateTime?
+  lastErrorCode         String?
+  lastError             String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connectedBy  User?           @relation(fields: [connectedByUserId], references: [id], onDelete: SetNull)
+  events       CalendarEvent[]
+
+  @@index([provider, status])
+}
+
+model CalendarOAuthState {
+  id                    String    @id @default(cuid())
+  stateHash             String    @unique
+  organizationId        String
+  userId                String
+  sessionId             String
+  provider              String    @default("google")
+  redirectUri           String
+  codeVerifierEncrypted String
+  expiresAt             DateTime
+  consumedAt            DateTime?
+  createdAt             DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([organizationId, createdAt])
+}
+
+model CalendarEvent {
+  id                      String    @id @default(cuid())
+  organizationId          String
+  interviewId             String?
+  connectionId            String?
+  provider                String    @default("google")
+  operation               String    @default("Upsert")
+  externalId              String?
+  externalHtmlLink        String?
+  externalStatus          String?
+  status                  String    @default("Pending")
+  notificationPolicy      String    @default("None")
+  notificationRequestedAt DateTime?
+  startsAt                DateTime
+  endsAt                  DateTime
+  attempts                Int       @default(0)
+  maxAttempts             Int       @default(5)
+  availableAt             DateTime  @default(now())
+  leaseOwner              String?
+  leaseExpiresAt          DateTime?
+  lastAttemptAt           DateTime?
+  lastSyncedAt            DateTime?
+  failureCode             String?
+  lastError               String?
+  version                 Int       @default(1)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  interview    Interview?          @relation(fields: [interviewId], references: [id], onDelete: SetNull)
+  connection   CalendarConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
+  @@unique([interviewId, provider])
+  @@index([organizationId, startsAt])
+  @@index([interviewId])
+  @@index([connectionId])
+  @@index([status, availableAt])
+  @@index([leaseExpiresAt])
+  @@index([organizationId, status])
+}
+
+model LiveInterviewSession {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  // Exactly one of createdByUserId (recruiter) or candidateSessionId (invited candidate) is set.
+  createdByUserId    String?
+  candidateSessionId String?
+  interviewId        String?
+  channel            String   @unique
+  agentId            String?
+  status             String   @default("PENDING")
+  expiresAt          DateTime
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy        User?             @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  candidateSession CandidateSession? @relation(fields: [candidateSessionId], references: [id], onDelete: Cascade)
+  interview        Interview?        @relation(fields: [interviewId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([createdByUserId])
+  @@index([candidateSessionId])
+}
+
+/// A one-time link that lets a candidate join one persisted interview.
+/// Only the token hash is stored. The token is HMAC(server key, id.nonce),
+/// so the email worker can render the link at send time without persisting it.
+model CandidateInvitation {
+  id              String    @id @default(cuid())
+  organizationId  String
+  interviewId     String
+  applicationId   String
+  tokenHash       String    @unique
+  nonce           String
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  redeemedAt      DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  interview    Interview          @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  application  Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  createdBy    User?              @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  sessions     CandidateSession[]
+
+  @@index([organizationId, interviewId])
+  @@index([interviewId, revokedAt, redeemedAt])
+}
+
+/// Short-lived candidate access created by redeeming an invitation. It grants
+/// interview APIs for exactly one interview and nothing in the HR portal.
+model CandidateSession {
+  id             String    @id @default(cuid())
+  organizationId String
+  interviewId    String
+  applicationId  String
+  invitationId   String
+  tokenHash      String    @unique
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  interview    Interview              @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  application  Application            @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  invitation   CandidateInvitation    @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  liveSessions LiveInterviewSession[]
+
+  @@index([interviewId])
+  @@index([invitationId])
+}

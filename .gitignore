@@ -1,5 +1,24 @@
 node_modules/
 .next/
+.next-*/
+var/cv-storage*/
 *.log
 *.tsbuildinfo
 .env.local
+.env.postgres.local
+.env.*.local
+tests/e2e/.e2e-auth/
+test-results/
+playwright-report/
+
+# Ruflo local secrets and runtime data
+.env
+.claude-flow/data/
+.claude-flow/logs/
+.claude-flow/sessions/
+
+# Local agent tooling state and scratch files
+.claude/
+.claude-flow/
+.swarm/
+scratchpad/

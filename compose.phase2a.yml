@@ -1,0 +1,39 @@
+name: ecopanel-phase2a
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in the env file}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the env file}
+      POSTGRES_DB: ${POSTGRES_DB:-ecopanel_dev}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - ecopanel_phase2a_pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  clamav:
+    image: clamav/clamav:stable
+    ports:
+      - "127.0.0.1:3310:3310"
+    volumes:
+      - ecopanel_phase2a_clamav_db:/var/lib/clamav
+    healthcheck:
+      test: ["CMD-SHELL", "clamdcheck.sh"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
+      start_period: 180s
+
+volumes:
+  ecopanel_phase2a_pgdata:
+    name: ecopanel_phase2a_pgdata
+  ecopanel_phase2a_clamav_db:
+    name: ecopanel_phase2a_clamav_db
