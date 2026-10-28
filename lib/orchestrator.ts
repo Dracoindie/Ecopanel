@@ -115,21 +115,42 @@ export function buildInterviewGreeting(state: SharedInterviewState): string {
   return `Welcome to EchoPanel, ${state.candidateName}. I'll coordinate your adaptive interview for ${role} across technical, product, and behavioural perspectives. Only one interviewer speaks at a time.`;
 }
 
+const LEVEL_IN_TITLE_RE = /\b(intern|junior|jr|graduate|mid|senior|sr|lead|staff|principal|head)\b/i;
+
+/** "Senior Engineer", never "Senior Senior Engineer": the level is added only when the title has none. */
+export function roleWithLevel(experienceLevel: string, targetRole: string): string {
+  const level = experienceLevel.trim();
+  return !level || LEVEL_IN_TITLE_RE.test(targetRole) ? targetRole : `${level} ${targetRole}`;
+}
+
+/** How technical job keywords read in a spoken question; business words are left out. */
+const FOCUS_LABELS: Record<string, string> = {
+  payments: "payments", api: "APIs", latency: "latency", redis: "Redis", kafka: "Kafka",
+  microservices: "microservices", distributed: "distributed systems", scalability: "scalability",
+  reliability: "reliability", checkout: "checkout", incident: "incident response", sre: "SRE",
+  observability: "observability", kubernetes: "Kubernetes", sql: "SQL", postgres: "Postgres",
+  graphql: "GraphQL", react: "React", backend: "backend services", frontend: "frontend development",
+  fullstack: "full-stack development", security: "security", sla: "SLAs", p95: "p95 latency", throughput: "throughput"
+};
+
+/** "frontend development and React", or null when the job names no technical area. */
+export function jobFocusPhrase(jobDescription: string, targetRole: string): string | null {
+  const text = `${targetRole} ${jobDescription}`.toLowerCase();
+  const labels = Object.keys(FOCUS_LABELS).filter(term => text.includes(term)).slice(0, 2).map(term => FOCUS_LABELS[term]);
+  return labels.length ? labels.join(" and ") : null;
+}
+
 export function generateOpeningQuestion(state: SharedInterviewState): string {
-  const signals = extractJdSignals(state.jobDescription, state.targetRole);
-  const focus = signals[0] || "a recent high-impact project";
-  const jdHint = state.jobDescription
-    ? ` given requirements around ${signals.slice(0, 3).join(", ") || state.targetRole}`
-    : "";
+  const focus = jobFocusPhrase(state.jobDescription, state.targetRole);
   const level = state.experienceLevel.toLowerCase();
 
   if (level.includes("senior") || level.includes("staff")) {
-    return `As a ${state.experienceLevel} ${state.targetRole} candidate${jdHint}, walk me through a system you owned end-to-end involving ${focus}. What were the hardest technical trade-offs?`;
+    return `As a ${roleWithLevel(state.experienceLevel, state.targetRole)} candidate, walk me through a system you owned end-to-end${focus ? ` that involved ${focus}` : ""}. What were the hardest technical trade-offs?`;
   }
   if (level.includes("junior")) {
-    return `For this ${state.targetRole} interview${jdHint}, tell me about a project where you worked with ${focus}. What was your contribution and what did you learn?`;
+    return `For this ${state.targetRole} interview, tell me about a project${focus ? ` where you worked with ${focus}` : " you are proud of"}. What was your contribution and what did you learn?`;
   }
-  return `You're interviewing for ${state.targetRole}${jdHint}. Start with a concrete example involving ${focus}: what problem did you solve, and how did you approach it?`;
+  return `You're interviewing for the ${state.targetRole} role. Start with a concrete example${focus ? ` involving ${focus}` : " from a recent project"}: what problem did you solve, and how did you approach it?`;
 }
 
 export function initializeInterviewSession(state: SharedInterviewState): {
@@ -196,8 +217,11 @@ function normalizeQuestion(text: string): string {
 }
 
 const CONTRADICTION_REASON = "Timeline contradiction needs reconciliation";
-/** Candidate answers in a live interview before the Moderator closes it (opening + 6 follow-ups). */
-export const LIVE_INTERVIEW_ANSWER_LIMIT = 7;
+/**
+ * Candidate answers in a live interview before the Moderator closes it
+ * (opening + 7 follow-ups, roughly 6-10 minutes with complete answers).
+ */
+export const LIVE_INTERVIEW_ANSWER_LIMIT = 8;
 
 /** Profile questions every live interview covers, asked once the candidate has given enough answers. */
 const PROFILE_QUESTIONS: Array<{ afterAnswers: number; role: InterviewerRole; objective: string; question: (state: SharedInterviewState) => string }> = [
@@ -208,7 +232,7 @@ const PROFILE_QUESTIONS: Array<{ afterAnswers: number; role: InterviewerRole; ob
     question: () => "Let's talk about your resume. Pick one role or project on it that you are most proud of: what were you responsible for, and what did you deliver?"
   },
   {
-    afterAnswers: 4,
+    afterAnswers: 5,
     role: "technical",
     objective: "public_projects",
     question: () => "Tell me about a project on your GitHub or LinkedIn profile: what did you build, which technologies did you use, and what would you improve now?"
@@ -454,8 +478,6 @@ function buildDynamicQuestion(
   objective: string,
   latestTurn: TranscriptTurn
 ): string {
-  const signals = extractJdSignals(state.jobDescription, state.targetRole);
-  const jdFocus = signals.slice(0, 3).join(", ") || state.targetRole;
   const claim = state.claims[state.claims.length - 1];
   const answerSnippet = latestTurn.text.length > 90 ? `${latestTurn.text.slice(0, 87)}...` : latestTurn.text;
   const difficulty = state.difficulty;
@@ -468,9 +490,9 @@ function buildDynamicQuestion(
 
   if (role === "product" && (objective.includes("customer") || objective.includes("business"))) {
     if (claim?.claim) {
-      return `You claimed: "${claim.claim}". For a ${state.targetRole} focused on ${jdFocus}, what did that actually change for customers or the business?`;
+      return `You claimed: "${claim.claim}". For this ${state.targetRole} role, what did that actually change for customers or the business?`;
     }
-    return `What customer or business outcome resulted from that work on ${jdFocus}? Please quantify impact if you can.`;
+    return `What customer or business outcome resulted from that work? Please quantify impact if you can.`;
   }
 
   if (role === "technical" && objective.includes("quantify")) {
@@ -479,21 +501,21 @@ function buildDynamicQuestion(
 
   if (role === "technical") {
     if (difficulty >= 4) {
-      return `At difficulty ${difficulty}/5 for ${state.targetRole}: given constraints around ${jdFocus}, what happens under network partitions, failover, or peak-load failure modes in the system you described?`;
+      return `At difficulty ${difficulty}/5 for ${state.targetRole}: what happens under network partitions, failover, or peak-load failure modes in the system you described?`;
     }
     if (claim?.category === "performance") {
-      return `Technically solid so far. How would the caching or performance design behave if a dependency fails during peak traffic for ${jdFocus}?`;
+      return `Technically solid so far. How would the caching or performance design behave if a dependency fails during peak traffic?`;
     }
-    return `Dig one level deeper on implementation for ${jdFocus}: what correctness, reliability, or edge-case risks remain in what you just described?`;
+    return `Dig one level deeper on that implementation: what correctness, reliability, or edge-case risks remain in what you just described?`;
   }
 
   if (role === "product") {
-    return `From a product/manager lens on ${jdFocus}: how did you prioritize this work against competing roadmap needs, and what trade-offs did you accept?`;
+    return `From a product perspective: how did you prioritize this work against competing roadmap needs, and what trade-offs did you accept?`;
   }
 
   // behavioural default
   if (objective.includes("conflict") || objective.includes("ownership")) {
-    return `Tell me about a disagreement or ownership moment while delivering ${jdFocus}. How did you navigate conflict and keep accountability clear?`;
+    return `Tell me about a disagreement or ownership moment while delivering that work. How did you navigate conflict and keep accountability clear?`;
   }
   return `Behaviourally, for this ${state.targetRole} bar: how did you handle ambiguity or shifting timelines while owning the outcome?`;
 }

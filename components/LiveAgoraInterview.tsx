@@ -13,6 +13,7 @@ import {
 } from "@/lib/orchestrator";
 import {
   createAgentTurnAuditor,
+  createAnswerAccumulator,
   createAuthorizedSpeechLedger,
   createSerialTurnQueue,
   createSessionScope,
@@ -23,6 +24,7 @@ import {
   normalizeForMatch,
   persistedInterviewId,
   type AgentTurnAuditor,
+  type AnswerAccumulator,
   type AuthorizedSpeechLedger,
   type SerialTurnQueue,
   type SessionScope,
@@ -124,6 +126,7 @@ export function LiveAgoraInterview() {
   const audioRef = useRef<HTMLDivElement>(null);
   const floorBusyRef = useRef(false);
   const turnQueueRef = useRef<SerialTurnQueue<CandidateTurnEvent> | null>(null);
+  const answerAccumulatorRef = useRef<AnswerAccumulator | null>(null);
   const authorizedSpeechRef = useRef<AuthorizedSpeechLedger | null>(null);
   // What the agent was last asked to say; candidate turns that merely repeat it are speaker echo.
   const lastAiUtteranceRef = useRef("");
@@ -403,6 +406,32 @@ export function LiveAgoraInterview() {
     return turnQueueRef.current?.enqueue({ ...turn, text }) ?? false;
   };
 
+  // Voice segments are merged into one answer until the candidate has been quiet
+  // for ANSWER_GRACE_MS, so a pause mid-answer does not advance the interview.
+  const createSessionAnswerAccumulator = (sessionToken: SessionToken) => createAnswerAccumulator({
+    onAnswer: answer => {
+      if (!sessionScopeRef.current?.isCurrent(sessionToken)) return;
+      diag("answer-complete", { segments: answer.segments, words: answer.text.split(/\s+/).length });
+      enqueueCandidateTurn({ text: answer.text, fallbackKey: answer.key }, sessionToken);
+    }
+  });
+
+  const acceptVoiceSegment = (segment: { text: string; key: string }, sessionToken: SessionToken) => {
+    if (!sessionScopeRef.current?.isCurrent(sessionToken)) return;
+    const text = segment.text.trim();
+    if (!isSubstantiveUtterance(text)) return;
+    if (isLikelyEcho(text, lastAiUtteranceRef.current)) {
+      console.info("[EchoPanel Speech] candidate turn ignored as probable speaker echo");
+      diag("candidate-echo-ignored", { words: text.split(/\s+/).length });
+      return;
+    }
+    if (answerAccumulatorRef.current?.addFinal({ text, key: segment.key })) {
+      diag("answer-segment", { pending: answerAccumulatorRef.current.pending() });
+      // Stop any autonomous agent reply to this pause right away.
+      void interruptAutonomousAgent(sessionToken);
+    }
+  };
+
   const ensureActiveSessionToken = () => {
     const scope = sessionScopeRef.current;
     if (!scope) return null;
@@ -414,6 +443,7 @@ export function LiveAgoraInterview() {
     assessmentAbortRef.current?.abort();
     assessmentAbortRef.current = null;
     turnQueueRef.current?.reset();
+    answerAccumulatorRef.current?.reset();
     turnQueueRef.current = createSessionTurnQueue(sessionToken);
     return sessionToken;
   };
@@ -458,6 +488,7 @@ export function LiveAgoraInterview() {
     const stopGeneration = scope.invalidate();
     activeSessionTokenRef.current = null;
     turnQueueRef.current?.reset();
+    answerAccumulatorRef.current?.reset();
     turnQueueRef.current = null;
     assessmentAbortRef.current?.abort();
     assessmentAbortRef.current = null;
@@ -553,7 +584,9 @@ export function LiveAgoraInterview() {
     assessmentAbortRef.current?.abort();
     assessmentAbortRef.current = null;
     turnQueueRef.current?.reset();
+    answerAccumulatorRef.current?.reset();
     turnQueueRef.current = createSessionTurnQueue(sessionToken);
+    answerAccumulatorRef.current = createSessionAnswerAccumulator(sessionToken);
     if (floorTimerRef.current) {
       clearTimeout(floorTimerRef.current);
       floorTimerRef.current = null;
@@ -712,8 +745,9 @@ export function LiveAgoraInterview() {
 
       ai.on((toolkit as any).AgoraVoiceAIEvents.TRANSCRIPT_UPDATED, (items: unknown[]) => {
         if (!scope.isCurrent(sessionToken) || !Array.isArray(items) || items.length === 0) return;
-        // The toolkit sends complete history on every revision. Scan all entries,
-        // but only process a user.transcription whose metadata.final is true.
+        // The toolkit sends complete history on every revision. Scan all entries;
+        // finalized user.transcription segments feed the answer accumulator.
+        let latestCandidateEntry: AgoraTranscriptItem | null = null;
         for (const entry of items as AgoraTranscriptItem[]) {
           const text = extractTranscriptText(entry);
           const kind = transcriptKind(entry);
@@ -721,12 +755,12 @@ export function LiveAgoraInterview() {
           const uid = String(entry.uid ?? "");
           const isCandidate = kind === "candidate" || (kind === "unknown" && uid === candidateUid);
           const isAgent = kind === "agent" || (kind === "unknown" && uid === agentUid);
+          if (isCandidate) latestCandidateEntry = entry;
 
           if (isCandidate && entry.metadata?.final === true && text) {
-            enqueueCandidateTurn({
+            acceptVoiceSegment({
               text,
-              turnId,
-              fallbackKey: turnId == null ? `rtm:${uid}:${normalizeForMatch(text)}` : undefined
+              key: turnId != null ? `turn:${turnId}` : `rtm:${uid}:${normalizeForMatch(text)}`
             }, sessionToken);
           } else if (isAgent && entry.status === (toolkit as any).TurnStatus?.END && text) {
             // EchoPanel records interviewer text when it authorizes it. Do not
@@ -740,6 +774,10 @@ export function LiveAgoraInterview() {
               diag("agent-unauthorized-turn-completed", { words: text.split(/\s+/).length });
             }
           }
+        }
+        // The candidate is still talking (newest segment not final yet): keep waiting.
+        if (latestCandidateEntry && latestCandidateEntry.metadata?.final !== true && extractTranscriptText(latestCandidateEntry)) {
+          answerAccumulatorRef.current?.noteSpeech();
         }
       });
 
@@ -789,6 +827,7 @@ export function LiveAgoraInterview() {
       const failureGeneration = scope.invalidate();
       activeSessionTokenRef.current = null;
       turnQueueRef.current?.reset();
+      answerAccumulatorRef.current?.reset();
       turnQueueRef.current = null;
       setIsAnalyzing(false);
       interruptInFlightRef.current = null;
@@ -805,6 +844,7 @@ export function LiveAgoraInterview() {
     activeSessionTokenRef.current = null;
     assessmentAbortRef.current?.abort();
     turnQueueRef.current?.reset();
+    answerAccumulatorRef.current?.reset();
     turnQueueRef.current = null;
     void cleanupConnections();
   }, []);

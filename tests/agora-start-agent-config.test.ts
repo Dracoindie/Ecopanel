@@ -68,7 +68,7 @@ describe("POST /api/agora/start agent configuration", () => {
     const options = mockAgentOptions.mock.calls[0][0] as { turnDetection: typeof AGENT_TURN_DETECTION };
     expect(options.turnDetection).toEqual(AGENT_TURN_DETECTION);
     expect(options.turnDetection.config.start_of_speech.vad_config.interrupt_duration_ms).toBe(600);
-    expect(options.turnDetection.config.end_of_speech.vad_config.silence_duration_ms).toBe(480);
+    expect(options.turnDetection.config.end_of_speech.vad_config.silence_duration_ms).toBe(900);
   });
 
   it("still succeeds when the prompt update fails, without logging the token", async () => {

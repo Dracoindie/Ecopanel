@@ -9,7 +9,9 @@ import {
   generateOpeningQuestion,
   authorizeSpeaker,
   releaseFloor,
-  LIVE_INTERVIEW_ANSWER_LIMIT
+  LIVE_INTERVIEW_ANSWER_LIMIT,
+  jobFocusPhrase,
+  roleWithLevel
 } from "../lib/orchestrator";
 import { ModeratorDecision, TranscriptTurn } from "../lib/types";
 
@@ -387,7 +389,7 @@ describe("Live client turn sequence (recorded repeated-question loop)", () => {
       state = result.state;
     }
     expect(decisions[1].suggestedQuestion).toMatch(/your resume/i);
-    expect(decisions[3].suggestedQuestion).toMatch(/GitHub or LinkedIn/);
+    expect(decisions[4].suggestedQuestion).toMatch(/GitHub or LinkedIn/);
     const closing = decisions[LIVE_INTERVIEW_ANSWER_LIMIT - 1];
     expect(closing).toMatchObject({ closing: true, nextSpeaker: "moderator" });
     expect(closing.suggestedQuestion).toBe(
@@ -511,3 +513,78 @@ describe("Live client turn sequence (recorded repeated-question loop)", () => {
   });
 });
 
+
+describe("Opening question wording (2026-10-28 journey test)", () => {
+  it.each([
+    ["Senior", "Senior Frontend Engineer", "Senior Frontend Engineer"],
+    ["Junior", "Junior Data Analyst", "Junior Data Analyst"],
+    ["Senior", "Lead QA Engineer", "Lead QA Engineer"],
+    ["Staff", "Staff Software Engineer", "Staff Software Engineer"],
+    ["Senior", "Frontend Engineer", "Senior Frontend Engineer"],
+    ["Mid", "Platform Engineer", "Mid Platform Engineer"]
+  ])("adds the %s level to %s only when the title has none", (level, title, expected) => {
+    expect(roleWithLevel(level, title)).toBe(expected);
+  });
+
+  it("never says the level twice in the opening question", () => {
+    const state = createInitialState("o-1", "Senior Frontend Engineer", "Test", "Build our product UI in React and own frontend performance.", "Senior");
+    const opening = generateOpeningQuestion(state);
+    expect(opening).not.toMatch(/Senior Senior/i);
+    expect(opening).toMatch(/^As a Senior Frontend Engineer candidate/);
+  });
+
+  it("names technical areas in natural words instead of a keyword list", () => {
+    expect(jobFocusPhrase("Build our product UI in React and own frontend performance.", "Senior Frontend Engineer")).toBe("React and frontend development");
+    expect(jobFocusPhrase("Own payment APIs with Redis caching.", "Backend Engineer")).toBe("APIs and Redis");
+    expect(jobFocusPhrase("A throwaway role used for testing.", "Live Test Engineer")).toBeNull();
+  });
+
+  it("falls back to a plain sentence when the job names no technical area", () => {
+    const state = createInitialState("o-2", "Live Test Engineer", "Test", "A throwaway role used for testing.", "Mid");
+    const opening = generateOpeningQuestion(state);
+    expect(opening).toBe("You're interviewing for the Live Test Engineer role. Start with a concrete example from a recent project: what problem did you solve, and how did you approach it?");
+  });
+
+  it("does not recite job keywords in follow-up questions", () => {
+    let state = initializeInterviewSession(
+      createInitialState("o-3", "Senior Frontend Engineer", "Test", "Build our product UI in React and own frontend performance.", "Senior")
+    ).updatedState;
+    const questions: string[] = [];
+    for (let index = 0; index < LIVE_INTERVIEW_ANSWER_LIMIT - 1; index++) {
+      const turn: TranscriptTurn = { id: `kw-${index}`, speaker: "candidate", text: "I led the work, planned it with my team and delivered it step by step with regular reviews.", timestamp: Date.now(), isFinal: true };
+      const candidateState = { ...state, activeSpeaker: "candidate" as const, transcript: [...state.transcript, turn] };
+      const step = runModeratorStep(candidateState, turn, analyzeAnswerLocally(turn.text, candidateState.transcript, candidateState.claims));
+      questions.push(step.decision.suggestedQuestion ?? "");
+      state = releaseFloor(authorizeSpeaker(step.updatedState, step.decision.nextSpeaker, step.decision.suggestedQuestion));
+    }
+    for (const question of questions) expect(question).not.toMatch(/(on|around|delivering|lens on) (product|frontend|react)(, |\b)/i);
+  });
+});
+
+describe("Live interview length (8 answers)", () => {
+  const styles: Record<string, string[]> = {
+    plain: Array.from({ length: 8 }, (_, i) => `I handled part ${i + 1} of the project carefully with my team and explained the decisions to everyone involved.`),
+    technical: Array.from({ length: 8 }, (_, i) => `We added retries with backoff and a Kafka queue in step ${i + 1}, and cut p95 latency by ${10 + i}% under peak traffic.`),
+    business: Array.from({ length: 8 }, (_, i) => `Customer conversion increased by ${5 + i}% and churn dropped after release ${i + 1} reached all users.`),
+    short: Array.from({ length: 8 }, (_, i) => (i % 2 ? "I am not completely sure about that one." : "Yes, I owned that decision end to end."))
+  };
+
+  it.each(Object.keys(styles))("asks 7 distinct follow-ups and closes exactly after answer 8 (%s answers)", style => {
+    let state = initializeInterviewSession(createInitialState(`len-${style}`, "Senior Frontend Engineer", "Test", "React frontend role.", "Senior")).updatedState;
+    const decisions: ModeratorDecision[] = [];
+    for (const [index, text] of styles[style].entries()) {
+      const turn: TranscriptTurn = { id: `${style}-${index}`, speaker: "candidate", text, timestamp: Date.now(), isFinal: true };
+      const candidateState = { ...state, activeSpeaker: "candidate" as const, floorLocked: false, transcript: [...state.transcript, turn] };
+      const step = runModeratorStep(candidateState, turn, analyzeAnswerLocally(text, candidateState.transcript, candidateState.claims));
+      decisions.push(step.decision);
+      state = releaseFloor(authorizeSpeaker(step.updatedState, step.decision.nextSpeaker, step.decision.suggestedQuestion));
+    }
+    expect(LIVE_INTERVIEW_ANSWER_LIMIT).toBe(8);
+    const followUps = decisions.slice(0, 7);
+    expect(followUps.every(d => !d.closing)).toBe(true);
+    expect(new Set(followUps.map(d => d.suggestedQuestion)).size).toBe(7);
+    expect(followUps[1].suggestedQuestion).toMatch(/your resume/i);
+    expect(followUps[4].suggestedQuestion).toMatch(/GitHub or LinkedIn/);
+    expect(decisions[7]).toMatchObject({ closing: true, reason: "Interview plan complete; closing the interview" });
+  });
+});

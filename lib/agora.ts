@@ -6,11 +6,13 @@ export const TOKEN_TTL_SECONDS = 60 * 60;
 /**
  * Agent turn detection. Barge-in needs 600 ms of detected speech: at 160 ms,
  * brief noise or a phone speaker's echo could cut the agent off after a syllable.
+ * A turn ends after 900 ms of silence: at 480 ms, ordinary mid-answer pauses
+ * split one answer into several turns (seen in the 2026-10-28 journey test).
  */
 export const AGENT_TURN_DETECTION = {
   config: {
     start_of_speech: { mode: "vad" as const, vad_config: { interrupt_duration_ms: 600, prefix_padding_ms: 300 } },
-    end_of_speech: { mode: "vad" as const, vad_config: { silence_duration_ms: 480 } }
+    end_of_speech: { mode: "vad" as const, vad_config: { silence_duration_ms: 900 } }
   }
 };
 const DEFAULT_CHANNEL_PREFIX = "echopanel";

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   createAgentTurnAuditor,
+  createAnswerAccumulator,
+  ANSWER_GRACE_MS,
   createAuthorizedSpeechLedger,
   createRecentKeyTracker,
   createSerialTurnQueue,
@@ -501,5 +503,80 @@ describe("Regression: Queued turns during analysis", () => {
     const step2 = runModeratorStep(state, turn2, analysis2);
     expect(step2.updatedState.transcript).toContainEqual(expect.objectContaining({ id: "turn-q2" }));
     expect(step2.updatedState.transcript.filter(t => t.speaker === "candidate").length).toBe(2);
+  });
+});
+
+describe("Live Helpers — answer accumulator (2026-10-28 fragmented answers)", () => {
+  // Hand-driven timer so the grace window is deterministic.
+  function harness(graceMs = ANSWER_GRACE_MS) {
+    let now = 0;
+    let pending: { at: number; fn: () => void } | null = null;
+    const answers: { text: string; segments: number }[] = [];
+    const acc = createAnswerAccumulator({
+      graceMs,
+      onAnswer: answer => answers.push({ text: answer.text, segments: answer.segments }),
+      setTimer: (fn, ms) => (pending = { at: now + ms, fn }),
+      clearTimer: () => { pending = null; }
+    });
+    const advance = (ms: number) => {
+      now += ms;
+      if (pending && pending.at <= now) { const { fn } = pending; pending = null; fn(); }
+    };
+    return { acc, answers, advance };
+  }
+
+  it("merges a continuation that arrives after a short pause into one answer", () => {
+    const { acc, answers, advance } = harness();
+    // Turn 3 finalized at a pause; the candidate kept talking and turn 5 finalized 2.4 s later.
+    expect(acc.addFinal({ text: "I approached it by splitting the UI into components", key: "turn:3" })).toBe(true);
+    advance(1000);
+    acc.noteSpeech(); // interim transcript: still talking
+    advance(1000);
+    acc.noteSpeech();
+    advance(400);
+    expect(acc.addFinal({ text: "and measured the bundle size after each change", key: "turn:5" })).toBe(true);
+    expect(answers).toHaveLength(0);
+    advance(ANSWER_GRACE_MS);
+    expect(answers).toEqual([{ text: "I approached it by splitting the UI into components and measured the bundle size after each change", segments: 2 }]);
+  });
+
+  it("releases a genuine short answer on its own after the quiet period", () => {
+    const { acc, answers, advance } = harness();
+    acc.addFinal({ text: "I don't know that one.", key: "turn:7" });
+    advance(ANSWER_GRACE_MS - 1);
+    expect(answers).toHaveLength(0);
+    advance(1);
+    expect(answers).toEqual([{ text: "I don't know that one.", segments: 1 }]);
+  });
+
+  it("keeps separate answers separate when the candidate was quiet in between", () => {
+    const { acc, answers, advance } = harness();
+    acc.addFinal({ text: "First answer.", key: "turn:1" });
+    advance(ANSWER_GRACE_MS);
+    acc.addFinal({ text: "Second answer.", key: "turn:2" });
+    advance(ANSWER_GRACE_MS);
+    expect(answers.map(a => a.text)).toEqual(["First answer.", "Second answer."]);
+  });
+
+  it("ignores segments re-sent in the toolkit's full history", () => {
+    const { acc, answers, advance } = harness();
+    expect(acc.addFinal({ text: "Only once.", key: "turn:9" })).toBe(true);
+    expect(acc.addFinal({ text: "Only once.", key: "turn:9" })).toBe(false);
+    advance(ANSWER_GRACE_MS);
+    expect(acc.addFinal({ text: "Only once.", key: "turn:9" })).toBe(false);
+    advance(ANSWER_GRACE_MS);
+    expect(answers).toHaveLength(1);
+  });
+
+  it("does not let interim speech alone create an answer, and drops pending text on reset", () => {
+    const { acc, answers, advance } = harness();
+    acc.noteSpeech();
+    advance(ANSWER_GRACE_MS * 2);
+    expect(answers).toHaveLength(0);
+    acc.addFinal({ text: "Unfinished", key: "turn:11" });
+    acc.reset();
+    advance(ANSWER_GRACE_MS * 2);
+    expect(answers).toHaveLength(0);
+    expect(acc.pending()).toBe(0);
   });
 });

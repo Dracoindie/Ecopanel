@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Agent, AgoraClient, Area, ExpiresIn, generateConvoAIToken } from "agora-agents";
 import { z } from "zod";
 import { AGENT_TURN_DETECTION, agoraConfig, DEFAULT_AGENT_UID } from "@/lib/agora";
+import { roleWithLevel } from "@/lib/orchestrator";
 import { getPrisma } from "@/lib/server/db";
 import { interviewScope, requireInterviewAccess } from "@/lib/server/interview-access";
 import { logError, logInfo, logWarn } from "@/lib/server/logger";
@@ -23,7 +24,7 @@ function buildInstructions(role: string, experienceLevel: string, jobDescription
     : "No job description provided; keep questions role-appropriate.";
 
   return [
-    `You are EchoPanel's live interview VOICE layer for a ${experienceLevel} ${role} candidate.`,
+    `You are EchoPanel's live interview VOICE layer for a ${roleWithLevel(experienceLevel, role)} candidate.`,
     "EchoPanel's Moderator is the authoritative orchestrator. You are NOT a generic assistant.",
     "Never say 'How can I help you today?' or offer open-ended chatbot help.",
     "You are conducting an adaptive multi-perspective interview (Technical, Product/Manager, Behavioural).",

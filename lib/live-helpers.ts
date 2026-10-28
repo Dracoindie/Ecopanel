@@ -309,6 +309,80 @@ export function createRecentKeyTracker(options: RecentKeyTrackerOptions = {}): R
   };
 }
 
+/** Quiet time after the last candidate speech before a finalized answer is analyzed. */
+export const ANSWER_GRACE_MS = 1500;
+
+export type AnswerSegment = { text: string; key: string };
+
+export type AnswerAccumulator = {
+  /** Adds a finalized transcript segment; false when it was already seen this session. */
+  addFinal: (segment: AnswerSegment) => boolean;
+  /** The candidate is still speaking (interim transcript): postpone the pending answer. */
+  noteSpeech: () => void;
+  /** Number of segments waiting to be released as one answer. */
+  pending: () => number;
+  reset: () => void;
+};
+
+/**
+ * Speech recognition finalizes a turn at a short pause, so one spoken answer can
+ * arrive as several segments. Segments are merged and released as one answer
+ * only after the candidate has been quiet for graceMs; a pause alone never
+ * advances the interview. Each segment key is accepted once per session
+ * because the toolkit re-sends the full history.
+ */
+export function createAnswerAccumulator(options: {
+  onAnswer: (answer: AnswerSegment & { segments: number }) => void;
+  graceMs?: number;
+  setTimer?: (fn: () => void, ms: number) => unknown;
+  clearTimer?: (handle: unknown) => void;
+}): AnswerAccumulator {
+  const graceMs = Math.max(0, options.graceMs ?? ANSWER_GRACE_MS);
+  const setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
+  const clearTimer = options.clearTimer ?? (handle => clearTimeout(handle as ReturnType<typeof setTimeout>));
+  const seen = new Set<string>();
+  let buffer: AnswerSegment[] = [];
+  let timer: unknown = null;
+
+  const release = () => {
+    timer = null;
+    if (!buffer.length) return;
+    const segments = buffer;
+    buffer = [];
+    options.onAnswer({
+      text: segments.map(segment => segment.text.trim()).join(" "),
+      key: `answer:${segments.map(segment => segment.key).join("+")}`,
+      segments: segments.length
+    });
+  };
+  const restart = () => {
+    if (timer !== null) clearTimer(timer);
+    timer = setTimer(release, graceMs);
+  };
+
+  return {
+    addFinal(segment) {
+      if (!segment.key || seen.has(segment.key) || !segment.text.trim()) return false;
+      seen.add(segment.key);
+      buffer.push(segment);
+      restart();
+      return true;
+    },
+    noteSpeech() {
+      if (buffer.length) restart();
+    },
+    pending() {
+      return buffer.length;
+    },
+    reset() {
+      if (timer !== null) clearTimer(timer);
+      timer = null;
+      buffer = [];
+      seen.clear();
+    }
+  };
+}
+
 export type AgentTurnAuditor = {
   /** True only the first time a completed agent turn is seen and it is not authorised speech. */
   review: (key: string, text: string) => boolean;
