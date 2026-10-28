@@ -26,6 +26,7 @@ describe("Agora ConvoAI Authenticated Routes", () => {
     vi.clearAllMocks();
     process.env = {
       ...originalEnv,
+      APP_DATA_MODE: "demo",
       AGORA_APP_ID: "mock-app-id-12345",
       AGORA_APP_CERTIFICATE: "mock-app-cert-67890",
       AGORA_PIPELINE_ID: "mock-pipeline-id-abcde",
@@ -106,7 +107,7 @@ describe("Agora ConvoAI Authenticated Routes", () => {
       expect(mockSpeak).not.toHaveBeenCalled();
     });
 
-    it("returns 502 when Agora speak fails and preserves sanitized error message", async () => {
+    it("returns a safe 502 when Agora speak fails", async () => {
       mockSpeak.mockRejectedValue(new Error("401 Invalid authentication type"));
 
       const payload = {
@@ -128,7 +129,8 @@ describe("Agora ConvoAI Authenticated Routes", () => {
       const json = await response.json();
 
       expect(response.status).toBe(502);
-      expect(json.error).toBe("401 Invalid authentication type");
+      expect(json.error).toBe("The interview agent could not speak.");
+      expect(json.code).toBe("AGORA_SPEAK_FAILED");
     });
   });
 
@@ -191,7 +193,7 @@ describe("Agora ConvoAI Authenticated Routes", () => {
       expect(mockInterrupt).not.toHaveBeenCalled();
     });
 
-    it("returns 502 with observable error when interrupt fails", async () => {
+    it("returns a safe 502 when interrupt fails", async () => {
       mockInterrupt.mockRejectedValue(new Error("Agora upstream gateway timeout"));
 
       const payload = {
@@ -210,7 +212,8 @@ describe("Agora ConvoAI Authenticated Routes", () => {
       const json = await response.json();
 
       expect(response.status).toBe(502);
-      expect(json.error).toBe("Agora upstream gateway timeout");
+      expect(json.error).toBe("The interview agent could not be interrupted.");
+      expect(json.code).toBe("AGORA_INTERRUPT_FAILED");
     });
   });
 });

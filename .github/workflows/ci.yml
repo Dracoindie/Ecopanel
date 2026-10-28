@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  CI: "true"
+
+jobs:
+  quality:
+    name: Typecheck, lint, unit tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  integration:
+    name: PostgreSQL integration tests and migrations
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ecopanel
+          POSTGRES_PASSWORD: ci-ephemeral-postgres-password
+          POSTGRES_DB: ecopanel_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ecopanel -d ecopanel_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      APP_DATA_MODE: database
+      AUTH_SECRET: ci-only-secret-value-at-least-32-characters
+      DATABASE_URL: postgresql://ecopanel:ci-ephemeral-postgres-password@127.0.0.1:5432/ecopanel_test
+      TEST_DATABASE_URL: postgresql://ecopanel:ci-ephemeral-postgres-password@127.0.0.1:5432/ecopanel_test
+      CV_STORAGE_DIR: var/cv-storage-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Refuse unsafe database targets
+        run: node scripts/assert-safe-db.mjs DATABASE_URL TEST_DATABASE_URL
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+      - name: Run database-backed tests
+        run: npm test
+
+  e2e:
+    name: Playwright browser E2E
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ecopanel
+          POSTGRES_PASSWORD: ci-ephemeral-postgres-password
+          POSTGRES_DB: ecopanel_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ecopanel -d ecopanel_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      E2E_BASE_URL: http://127.0.0.1:3201
+      E2E_DATABASE_URL: postgresql://ecopanel:ci-ephemeral-postgres-password@127.0.0.1:5432/ecopanel_e2e
+      E2E_CV_STORAGE_DIR: var/cv-storage-e2e
+      E2E_OWNER_EMAIL: ci-owner@example.test
+      E2E_OWNER_PASSWORD: ci-owner-password-123
+      E2E_OTHER_EMAIL: ci-other@example.test
+      E2E_OTHER_PASSWORD: ci-other-password-123
+      AUTH_SECRET: ci-only-secret-value-at-least-32-characters
+      CV_SCANNER_PROVIDER: http
+      CV_SCANNER_URL: http://127.0.0.1:3311/scan
+      CV_SCANNER_TIMEOUT_MS: "5000"
+      RATE_LIMIT_PUBLIC_APPLY_MAX: "100"
+      RATE_LIMIT_AUTH_SIGNIN_MAX: "100"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Refuse unsafe database targets
+        run: node scripts/assert-safe-db.mjs E2E_DATABASE_URL
+      - run: npx playwright install --with-deps chromium
+      - name: Run Playwright suite (test scanner + durable worker)
+        run: npm run test:e2e
+
+  real-scanner:
+    name: Real ClamAV verification
+    runs-on: ubuntu-latest
+    services:
+      clamav:
+        image: clamav/clamav:stable
+        ports:
+          - 3310:3310
+        options: >-
+          --health-cmd "clamdcheck.sh"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 60
+          --health-start-period 180s
+    env:
+      CV_CLAMAV_INTEGRATION: "1"
+      CV_CLAMAV_HOST: 127.0.0.1
+      CV_CLAMAV_PORT: "3310"
+      CV_SCANNER_PROVIDER: clamav
+      CV_SCANNER_TIMEOUT_MS: "30000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run test:scanner:real

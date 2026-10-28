@@ -7,9 +7,11 @@ import {
   initializeInterviewSession,
   extractJdSignals,
   generateOpeningQuestion,
-  authorizeSpeaker
+  authorizeSpeaker,
+  releaseFloor,
+  LIVE_INTERVIEW_ANSWER_LIMIT
 } from "../lib/orchestrator";
-import { TranscriptTurn } from "../lib/types";
+import { ModeratorDecision, TranscriptTurn } from "../lib/types";
 
 describe("Live Orchestration & Multi-Agent Engine", () => {
   it("initializes shared state with Moderator listening and baseline difficulty", () => {
@@ -315,6 +317,195 @@ describe("Live Orchestration & Multi-Agent Engine", () => {
       expect(claimNode.sourceTurnId).toBe(turn.id);
       expect(decision.nextSpeaker).toBe("product");
     }
+  });
+});
+
+describe("Live client turn sequence (recorded repeated-question loop)", () => {
+  // Mirrors components/LiveAgoraInterview.tsx: the candidate takes the floor,
+  // /api/interview/analyze runs the Moderator, the question is authorized and
+  // spoken, then the floor is released back to the candidate.
+  function clientTurn(state: ReturnType<typeof createInitialState>, id: string, text: string) {
+    const turn: TranscriptTurn = { id, speaker: "candidate", text, timestamp: Date.now(), isFinal: true };
+    const candidateState = { ...state, activeSpeaker: "candidate" as const, floorLocked: false, transcript: [...state.transcript, turn] };
+    const step = runModeratorStep(candidateState, turn, analyzeAnswerLocally(text, candidateState.transcript, candidateState.claims));
+    // Without a suggested question the client speaks nothing and keeps the Moderator's state.
+    if (!step.decision.suggestedQuestion) return { state: step.updatedState, decision: step.decision };
+    const spoken = authorizeSpeaker(step.updatedState, step.decision.nextSpeaker, step.decision.suggestedQuestion);
+    return { state: releaseFloor(spoken), decision: step.decision };
+  }
+
+  const freshState = () => initializeInterviewSession(
+    createInitialState("live-replay", "Live Test Engineer", "Test Candidate", "Live Test Engineer", "Mid")
+  ).updatedState;
+
+  // Shape of the latest live session (10:24 UTC): 14 finalized candidate turns of
+  // similar length, one mentioning failover and peak load. Text is synthetic.
+  const latestSessionAnswers = [
+    "I worked on a live testing tool for our team, I split the work into smaller pieces and checked each piece with the people who would use it.",
+    "Yes, that is right.",
+    "It made our releases smoother overall.",
+    "I usually talk it through openly.",
+    "I balanced it against the other requests from the team by asking which problem hurt people the most, then we agreed together on the order and explained what had to wait and why.",
+    "I kept people updated whenever the plan changed and adjusted priorities.",
+    "Could you repeat that please?",
+    "I owned the plan from the start, wrote down the milestones and shared them with everyone, and when something changed I updated the plan the same day so nobody was surprised, which kept the team calm.",
+    "At failover and peak load the system crashed, so we added retries with backoff and a queue to absorb the spikes until it stayed up.",
+    "We tracked how many people used it each week and asked for feedback in our team meetings, and the feedback was good, although we did not set a formal target, so I would add one next time.",
+    "I would probably start by asking the users what they need most and then build the smallest version that solves it and improve it step by step.",
+    "I think that answers the question well enough.",
+    "I tried to stay positive and focused on what we could control when the deadline moved.",
+    "Thank you, I have nothing more to add."
+  ];
+
+  it("replays the latest session without repeating a question or emitting a contradiction placeholder", () => {
+    let state = freshState();
+    const decisions: ModeratorDecision[] = [];
+    for (const [index, text] of latestSessionAnswers.entries()) {
+      const result = clientTurn(state, `replay-${index}`, text);
+      decisions.push(result.decision);
+      state = result.state;
+    }
+    const questions = decisions.map(d => d.suggestedQuestion).filter((q): q is string => Boolean(q));
+    expect(new Set(questions.map(q => q.toLowerCase())).size).toBe(questions.length);
+    for (const question of questions) {
+      expect(question).not.toMatch(/an earlier timeline|earlier timeline claim|^earlier you/i);
+    }
+    // Every answer before the closing advanced to a new, recorded question.
+    const asked = decisions.filter(d => !d.closing);
+    expect(asked).toHaveLength(LIVE_INTERVIEW_ANSWER_LIMIT - 1);
+    for (const decision of asked) {
+      expect(state.transcript.some(t => t.text === decision.suggestedQuestion)).toBe(true);
+    }
+  });
+
+  it("covers the resume and GitHub/LinkedIn questions, then closes with the confirmation-email message", () => {
+    let state = freshState();
+    const decisions: ModeratorDecision[] = [];
+    for (const [index, text] of latestSessionAnswers.slice(0, LIVE_INTERVIEW_ANSWER_LIMIT).entries()) {
+      const result = clientTurn(state, `plan-${index}`, text);
+      decisions.push(result.decision);
+      state = result.state;
+    }
+    expect(decisions[1].suggestedQuestion).toMatch(/your resume/i);
+    expect(decisions[3].suggestedQuestion).toMatch(/GitHub or LinkedIn/);
+    const closing = decisions[LIVE_INTERVIEW_ANSWER_LIMIT - 1];
+    expect(closing).toMatchObject({ closing: true, nextSpeaker: "moderator" });
+    expect(closing.suggestedQuestion).toBe(
+      "Thank you for your time today, Test Candidate. That completes your interview for the Live Test Engineer role. Please wait for a confirmation email from the hiring team with the next steps. You can end the interview now."
+    );
+    expect(state.interviewComplete).toBe(true);
+
+    // Anything said after the closing is recorded, but nothing more is asked.
+    const after = clientTurn(state, "plan-after", "Thank you, have a nice day.");
+    expect(after.decision.closing).toBe(true);
+    expect(after.decision.suggestedQuestion).toBeUndefined();
+    expect(after.state.transcript.at(-1)?.speaker).toBe("candidate");
+  });
+
+  it("lets a supported timeline contradiction go before the resume question, which follows next", () => {
+    let state = freshState();
+    state = clientTurn(state, "plan-weeks-1", "The migration took three weeks across all of our services.").state;
+    const contradiction = clientTurn(state, "plan-weeks-2", "We finished the whole migration in five weeks without downtime.");
+    expect(contradiction.decision.reason).toBe("Timeline contradiction needs reconciliation");
+    const resume = clientTurn(contradiction.state, "plan-weeks-3", "The three weeks were the rollout and five weeks included validation.");
+    expect(resume.decision.suggestedQuestion).toMatch(/your resume/i);
+  });
+
+  it("changes interviewer appropriately across the replayed session", () => {
+    let state = freshState();
+    const speakers: string[] = [];
+    for (const [index, text] of latestSessionAnswers.entries()) {
+      const result = clientTurn(state, `replay-${index}`, text);
+      if (!result.decision.closing) speakers.push(result.decision.nextSpeaker);
+      state = result.state;
+    }
+    expect(new Set(speakers)).toEqual(new Set(["technical", "product", "behavioural"]));
+    for (let i = 2; i < speakers.length; i++) {
+      expect(speakers[i] === speakers[i - 1] && speakers[i] === speakers[i - 2]).toBe(false);
+    }
+  });
+
+  it("closes the interview once every suitable question has been asked, then stops requesting questions", () => {
+    // Without the live plan's answer limit, only running out of questions closes the interview.
+    let state = createInitialState("live-exhaust", "Live Test Engineer", "Test Candidate", "Live Test Engineer", "Mid");
+    const decisions: ModeratorDecision[] = [];
+    for (let index = 0; index < 60 && !state.interviewComplete; index++) {
+      const text = latestSessionAnswers[index % latestSessionAnswers.length];
+      const result = clientTurn(state, `exhaust-${index}`, text);
+      decisions.push(result.decision);
+      state = result.state;
+    }
+    const closing = decisions[decisions.length - 1];
+    expect(state.interviewComplete).toBe(true);
+    expect(closing.closing).toBe(true);
+    expect(closing.nextSpeaker).toBe("moderator");
+    expect(closing.suggestedQuestion).toMatch(/^Thank you for your time today, Test Candidate\..*confirmation email/);
+    expect(state.transcript.filter(t => t.text === closing.suggestedQuestion)).toHaveLength(1);
+    // No question was repeated before closing, including one that differs only
+    // in its "At difficulty N/5" prefix (heard twice in the 12:20 live test).
+    const questions = decisions.slice(0, -1).map(d => d.suggestedQuestion ?? "");
+    const withoutDifficulty = questions.map(q => q.replace(/^At difficulty \d+\/\d+ for [^:]+:\s*/, ""));
+    expect(new Set(withoutDifficulty).size).toBe(questions.length);
+
+    // Later answers are recorded, but nothing more is asked or spoken.
+    const transcriptLength = state.transcript.length;
+    for (let index = 0; index < 3; index++) {
+      const after = clientTurn(state, `after-close-${index}`, "One more thing I wanted to mention about the project.");
+      expect(after.decision.closing).toBe(true);
+      expect(after.decision.suggestedQuestion).toBeUndefined();
+      state = after.state;
+    }
+    expect(state.transcript).toHaveLength(transcriptLength + 3);
+    expect(state.transcript.slice(transcriptLength).every(t => t.speaker === "candidate")).toBe(true);
+  });
+
+  it("asks a timeline-contradiction question only with stated durations as evidence", () => {
+    let state = freshState();
+    state = clientTurn(state, "weeks-1", "The migration took three weeks across all of our services.").state;
+    const result = clientTurn(state, "weeks-2", "We finished the whole migration in five weeks without downtime.");
+    expect(result.decision.nextSpeaker).toBe("behavioural");
+    expect(result.decision.reason).toBe("Timeline contradiction needs reconciliation");
+    expect(result.decision.suggestedQuestion).toBe(
+      "Earlier you said it took three weeks, but you just described five weeks. Can you clarify the difference and who owned the timeline?"
+    );
+  });
+
+  // Answers like the live test's: substantive, but with no technical keywords or business metrics.
+  const answers = [
+    "I approached it with the help of AI tools, broke the problem into smaller parts and tested each part carefully with my team before we shipped it.",
+    "The outcome was that the team could ship faster and the people using it were happier, although we did not measure it precisely at the time.",
+    "I would say the main impact was saving time for everyone involved, and we got good feedback from the stakeholders who used it every day.",
+    "Looking back I learned to communicate earlier with the other teams and to write down the plan so everyone agreed on what we were building."
+  ];
+
+  it("asks a new question after every legitimate answer instead of repeating one", () => {
+    let state = initializeInterviewSession(
+      createInitialState("live-loop", "Live Test Engineer", "Test Candidate", "Live Test Engineer", "Mid")
+    ).updatedState;
+    const asked: string[] = [];
+    for (const [index, text] of answers.entries()) {
+      const result = clientTurn(state, `turn-${index}`, text);
+      asked.push(result.decision.suggestedQuestion ?? "");
+      state = result.state;
+    }
+
+    expect(new Set(asked).size).toBe(asked.length);
+    // Every spoken question is recorded as its own interviewer turn.
+    const interviewerTurns = state.transcript.filter(t => t.speaker !== "candidate" && t.speaker !== "moderator");
+    expect(interviewerTurns).toHaveLength(1 + answers.length);
+  });
+
+  it("rotates the panel instead of routing every answer to the same interviewer", () => {
+    let state = initializeInterviewSession(
+      createInitialState("live-rotate", "Live Test Engineer", "Test Candidate", "Live Test Engineer", "Mid")
+    ).updatedState;
+    const speakers: string[] = [];
+    for (const [index, text] of answers.entries()) {
+      const result = clientTurn(state, `turn-${index}`, text);
+      speakers.push(result.decision.nextSpeaker);
+      state = result.state;
+    }
+    for (let i = 1; i < speakers.length; i++) expect(speakers[i]).not.toBe(speakers[i - 1]);
   });
 });
 

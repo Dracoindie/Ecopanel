@@ -1,2 +1,7 @@
-import { describe, expect, it } from "vitest"; import { detectVagueness, findContradiction, nextDifficulty, selectNextSpeaker, demoClaim } from "../lib/interview";
+import { describe, expect, it } from "vitest"; import { detectVagueness, findContradiction, nextDifficulty, selectNextSpeaker, demoClaim, demoClaimAt, demoDecisionAt } from "../lib/interview";
 describe("adaptive interview engine", () => { it("routes missing business impact to product", () => expect(selectNextSpeaker(demoClaim).nextSpeaker).toBe("product")); it("raises difficulty after a strong answer", () => expect(nextDifficulty(3, "strong")).toBe(4)); it("finds vague answers", () => expect(detectVagueness("We improved performance significantly")).toBe(true)); it("finds timeline conflicts", () => expect(findContradiction("It took two weeks", ["The migration took six weeks"])).toBe(true)); });
+describe("scripted /demo moderator decisions", () => {
+  it("predicts the interviewer who actually speaks next at each step", () => expect([0, 1, 2, 3, 4, 5, 6, 7].map(step => demoDecisionAt(step).nextSpeaker)).toEqual(["product", "product", "product", "product", "behavioural", "behavioural", "technical", "technical"]));
+  it("stops reporting missing business impact once the candidate supplies it", () => { expect(demoClaimAt(4).product).toBe("supported"); expect(demoDecisionAt(7).reason).not.toMatch(/Business impact/); });
+  it("marks the timeline claim resolved after reconciliation", () => { expect(demoClaimAt(5).status).toBe("unresolved"); expect(demoClaimAt(6)).toMatchObject({ status: "resolved", behavioural: "supported" }); });
+});
