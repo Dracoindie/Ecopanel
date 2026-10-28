@@ -1,7 +1,9 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { requireInterviewAccess } from "@/lib/server/interview-access";
 import { z } from "zod";
 import { AnswerAnalysisSchema } from "@/lib/types";
 import { analyzeAnswerLocally, runModeratorStep } from "@/lib/orchestrator";
+import { logError } from "@/lib/server/logger";
 
 const RequestSchema = z.object({
   turn: z.object({
@@ -15,6 +17,8 @@ const RequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const access = await requireInterviewAccess(request, "interview-api", 60);
+  if ("response" in access) return access.response;
   try {
     const json = await request.json();
     const parsed = RequestSchema.safeParse(json);
@@ -39,9 +43,12 @@ export async function POST(request: Request) {
       updatedState
     });
   } catch (err) {
-    console.error("Answer analysis error:", err);
+    logError("Answer analysis failed", {
+      requestId: request.headers.get("x-request-id") ?? undefined,
+      error: err
+    });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to analyze answer" },
+      { error: "The answer could not be analysed.", code: "ANALYSIS_FAILED" },
       { status: 500 }
     );
   }

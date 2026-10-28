@@ -71,6 +71,8 @@ export interface ModeratorDecision {
   priority: number;
   difficulty: number;
   suggestedQuestion?: string;
+  /** The Moderator is closing the interview: no further questions follow. */
+  closing?: boolean;
 }
 
 export interface CompetencyState {
@@ -140,4 +142,6 @@ export interface SharedInterviewState {
   lastDecision?: ModeratorDecision;
   finalAssessment?: FinalAssessment;
   interviewInitialized: boolean;
+  /** Set once the Moderator has closed the interview; later answers get no new question. */
+  interviewComplete?: boolean;
 }

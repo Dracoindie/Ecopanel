@@ -16,3 +16,6 @@ export function selectNextSpeaker(claim: Claim, contradiction = false): Decision
 }
 export function nextDifficulty(current: number, signal: "strong" | "weak" | "vague" | "contradictory") { return Math.max(1, Math.min(5, current + (signal === "strong" ? 1 : signal === "weak" ? -1 : 0))); }
 export const demoClaim: Claim = { id: "claim-04", text: "Reduced payment API latency by 40% using Redis caching", sourceTurn: 4, technical: "supported", product: "missing", behavioural: "pending", status: "unresolved", confidence: .88 };
+/** Claim state after scripted demo step `step`: customer impact lands at step 4, the timeline is reconciled at step 6. */
+export function demoClaimAt(step: number): Claim { return { ...demoClaim, product: step >= 4 ? "supported" : "missing", behavioural: step >= 6 ? "supported" : "pending", status: step >= 6 ? "resolved" : "unresolved" }; }
+export function demoDecisionAt(step: number): Decision { return selectNextSpeaker(demoClaimAt(step), step >= 4 && step < 6); }

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { Agent, AgoraClient, Area, ExpiresIn } from "agora-agents";
+import { Agent, AgoraClient, Area, ExpiresIn, generateConvoAIToken } from "agora-agents";
 import { z } from "zod";
-import { agoraConfig, DEFAULT_AGENT_UID } from "@/lib/agora";
+import { AGENT_TURN_DETECTION, agoraConfig, DEFAULT_AGENT_UID } from "@/lib/agora";
+import { getPrisma } from "@/lib/server/db";
+import { interviewScope, requireInterviewAccess } from "@/lib/server/interview-access";
+import { logError, logInfo, logWarn } from "@/lib/server/logger";
 
 const schema = z.object({
   channel: z.string().min(1).max(64),
@@ -33,7 +36,9 @@ function buildInstructions(role: string, experienceLevel: string, jobDescription
 }
 
 export async function POST(request: Request) {
-  const parsed = schema.safeParse(await request.json());
+  const access = await requireInterviewAccess(request, "start", 10);
+  if ("response" in access) return access.response;
+  const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "channel and requesterId are required." }, { status: 400 });
   }
@@ -47,6 +52,21 @@ export async function POST(request: Request) {
   }
 
   const { channel, requesterId, targetRole, jobDescription, experienceLevel, candidateName, greeting, openingQuestion } = parsed.data;
+
+  // In database mode the channel must have been minted by /api/agora/token for
+  // the caller's organization. Claiming PENDING -> STARTING also prevents the
+  // same session from launching more than one agent.
+  const organizationId = access.context?.organizationId;
+  if (access.context && organizationId) {
+    const claimed = await getPrisma().liveInterviewSession.updateMany({
+      where: { channel, organizationId, status: "PENDING", expiresAt: { gt: new Date() }, ...interviewScope(access.context) },
+      data: { status: "STARTING" }
+    });
+    if (claimed.count !== 1) {
+      return NextResponse.json({ error: "Live session not found.", code: "LIVE_SESSION_NOT_FOUND" }, { status: 404 });
+    }
+  }
+
   const interviewGreeting =
     greeting ||
     `Welcome to EchoPanel, ${candidateName}. I'll coordinate your adaptive interview for ${targetRole} across technical, product, and behavioural perspectives.`;
@@ -64,20 +84,17 @@ export async function POST(request: Request) {
       "When the candidate speaks, remain silent and yield the floor to EchoPanel's Moderator."
     ].join(" ");
 
-    // AgentSession supplies the required ConvoAI authorization header. The
-    // greeting is supplied by EchoPanel and replaces the Console default, so
-    // the first audio is interview-specific rather than a generic assistant.
+    // AgentSession supplies the required ConvoAI authorization header. With a
+    // pipelineId and no withLlm(), agora-agents sends neither the greeting nor
+    // the instructions here (they belong to the omitted llm block): the agent
+    // greets with the Console pipeline's message. The client speaks EchoPanel's
+    // opening through /api/interview/speak, and the prompt is applied below.
     const agent = new Agent({
       client,
       pipelineId: config.pipelineId,
       instructions: promptInstruction,
       greeting: `${interviewGreeting} ${openingQuestion || ""}`.trim(),
-      turnDetection: {
-        config: {
-          start_of_speech: { mode: "vad", vad_config: { interrupt_duration_ms: 160, prefix_padding_ms: 300 } },
-          end_of_speech: { mode: "vad", vad_config: { silence_duration_ms: 480 } }
-        }
-      },
+      turnDetection: AGENT_TURN_DETECTION,
       advancedFeatures: { enable_rtm: true },
       parameters: { data_channel: "rtm", enable_error_message: true, enable_metrics: true }
     });
@@ -91,10 +108,29 @@ export async function POST(request: Request) {
     });
     const agentId = await session.start();
 
-    // Re-apply the output-only prompt after the pipeline is running. This is
-    // supported by the Agora update endpoint and does not expose credentials.
+    if (organizationId) {
+      try {
+        await getPrisma().liveInterviewSession.updateMany({
+          where: { channel, organizationId, status: "STARTING" },
+          data: { agentId, status: "RUNNING" }
+        });
+      } catch (recordErr) {
+        // Without a stored agentId the agent could never be stopped through this API.
+        await client.stopAgent(agentId).catch(() => undefined);
+        throw recordErr;
+      }
+    }
+
+    // Re-apply the output-only prompt after the pipeline is running. Like speak
+    // and interrupt, the update endpoint requires the ConvoAI token header.
     if (agentId) {
       try {
+        const convoToken = generateConvoAIToken({
+          appId: config.appId,
+          appCertificate: config.appCertificate,
+          channelName: channel,
+          uid: Number(DEFAULT_AGENT_UID)
+        });
         await client.agents.update({
           appid: config.appId,
           agentId,
@@ -108,9 +144,15 @@ export async function POST(request: Request) {
               ]
             }
           }
+        }, { headers: { Authorization: `agora token=${convoToken}` } });
+        logInfo("Agora agent prompt updated after start", {
+          requestId: request.headers.get("x-request-id") ?? undefined
         });
       } catch (updateErr) {
-        console.warn("Could not update agent prompt in start route:", updateErr);
+        logWarn("Could not update the Agora agent prompt after start", {
+          requestId: request.headers.get("x-request-id") ?? undefined,
+          error: updateErr
+        });
       }
     }
 
@@ -121,9 +163,18 @@ export async function POST(request: Request) {
       greeting: interviewGreeting
     });
   } catch (error) {
-    console.error("Agora agent start failed", error);
+    if (organizationId) {
+      // Release the claim so the owner can retry with the same session.
+      await getPrisma()
+        .liveInterviewSession.updateMany({ where: { channel, organizationId, status: "STARTING" }, data: { status: "PENDING" } })
+        .catch(() => undefined);
+    }
+    logError("Agora agent start failed", {
+      requestId: request.headers.get("x-request-id") ?? undefined,
+      error
+    });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Agora agent start failed" },
+      { error: "The interview agent could not be started.", code: "AGORA_START_FAILED" },
       { status: 502 }
     );
   }

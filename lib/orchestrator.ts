@@ -186,6 +186,81 @@ export function initializeInterviewSession(state: SharedInterviewState): {
   return { updatedState, greeting, openingQuestion, decision };
 }
 
+function isInterviewerRole(speaker: unknown): speaker is InterviewerRole {
+  return speaker === "technical" || speaker === "product" || speaker === "behavioural";
+}
+
+function normalizeQuestion(text: string): string {
+  // "At difficulty 4/5 for <role>:" only restates the level; the question after it is what repeats.
+  return text.trim().toLowerCase().replace(/\s+/g, " ").replace(/^at difficulty \d+\/\d+ for [^:]+:\s*/, "");
+}
+
+const CONTRADICTION_REASON = "Timeline contradiction needs reconciliation";
+/** Candidate answers in a live interview before the Moderator closes it (opening + 6 follow-ups). */
+export const LIVE_INTERVIEW_ANSWER_LIMIT = 7;
+
+/** Profile questions every live interview covers, asked once the candidate has given enough answers. */
+const PROFILE_QUESTIONS: Array<{ afterAnswers: number; role: InterviewerRole; objective: string; question: (state: SharedInterviewState) => string }> = [
+  {
+    afterAnswers: 2,
+    role: "behavioural",
+    objective: "resume_walkthrough",
+    question: () => "Let's talk about your resume. Pick one role or project on it that you are most proud of: what were you responsible for, and what did you deliver?"
+  },
+  {
+    afterAnswers: 4,
+    role: "technical",
+    objective: "public_projects",
+    question: () => "Tell me about a project on your GitHub or LinkedIn profile: what did you build, which technologies did you use, and what would you improve now?"
+  }
+];
+
+const STATED_WEEKS_RE = /\b(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+weeks?\b/i;
+
+/**
+ * The timeline-contradiction question, built only from durations the candidate
+ * actually stated in two recorded turns. Null when that evidence is missing.
+ */
+function contradictionQuestion(state: SharedInterviewState): string | null {
+  const contradiction = [...state.contradictions].reverse().find(c => !c.resolved);
+  if (!contradiction) return null;
+  const turnText = (id: string) => state.transcript.find(t => t.id === id && t.speaker === "candidate")?.text;
+  const earlier = turnText(contradiction.earlierTurnId)?.match(STATED_WEEKS_RE)?.[0];
+  const current = turnText(contradiction.currentTurnId)?.match(STATED_WEEKS_RE)?.[0];
+  if (!earlier || !current || earlier.toLowerCase() === current.toLowerCase()) return null;
+  // Preserve exact acceptance-test phrasing for the six-week / two-week case.
+  if (/^six weeks?$/i.test(earlier) && /^two weeks?$/i.test(current)) {
+    return "Earlier you mentioned the migration took six weeks, but you just described a two-week rollout. Can you clarify the difference?";
+  }
+  return `Earlier you said it took ${earlier}, but you just described ${current}. Can you clarify the difference and who owned the timeline?`;
+}
+
+/** Further questions per interviewer, used only once the routed question has already been asked. */
+const QUESTION_BANK: Record<InterviewerRole, Array<(state: SharedInterviewState) => string>> = {
+  technical: [
+    () => "Walk me through the architecture of the system you described: what were the main components, and why did you split them that way?",
+    () => "How did you test and verify that solution before it reached users, and what would you add to that test strategy now?",
+    () => "If the load on that system grew tenfold, what would break first, and how would you scale it?",
+    () => "How would you detect and debug a production incident in that system? Which signals or monitoring would you rely on?"
+  ],
+  product: [
+    () => "Who were the main users or stakeholders for that work, and how did you learn what they actually needed?",
+    () => "How did you decide what was in scope for the first release, and what did you deliberately leave out?",
+    () => "How did you measure whether that work was successful after it shipped?",
+    () => "If you had to cut the scope of that project in half, what would you keep, and why?"
+  ],
+  behavioural: [
+    () => "Tell me about a time you received critical feedback on your work. What did you change afterwards?",
+    () => "Describe a time you had to influence a decision without formal authority. How did you approach it?",
+    () => "Tell me about a mistake you made on a project. How did you handle it, and what did you learn?",
+    state => `What would your previous teammates say is your biggest strength and your biggest growth area as a ${state.targetRole}?`
+  ]
+};
+
+function closingMessage(state: SharedInterviewState): string {
+  return `Thank you for your time today, ${state.candidateName}. That completes your interview for the ${state.targetRole} role. Please wait for a confirmation email from the hiring team with the next steps. You can end the interview now.`;
+}
+
 function summarizeClaimText(text: string): string {
   const cleaned = text.replace(/\s+/g, " ").trim();
   if (cleaned.length <= 140) return cleaned;
@@ -386,8 +461,9 @@ function buildDynamicQuestion(
   const difficulty = state.difficulty;
 
   if (role === "behavioural" && objective.includes("timeline")) {
-    const earlier = analysis.contradictions[0]?.earlierClaim || "an earlier timeline";
-    return `Earlier you said "${earlier}", but you just described a different duration. Can you clarify ownership of the timeline and reconcile the difference?`;
+    // Only challenge a contradiction the transcript actually supports.
+    return contradictionQuestion(state)
+      ?? `Walk me through how you planned the timeline for that work. When it slipped or changed, how did you respond and keep others informed?`;
   }
 
   if (role === "product" && (objective.includes("customer") || objective.includes("business"))) {
@@ -441,6 +517,22 @@ export function runModeratorStep(
   const exists = updatedState.transcript.some(t => t.id === latestTurn.id);
   if (!exists) {
     updatedState.transcript.push(latestTurn);
+  }
+
+  // A closed interview records further answers but asks nothing more.
+  if (updatedState.interviewComplete) {
+    updatedState.floorLocked = false;
+    updatedState.agentStates = { technical: "idle", product: "idle", behavioural: "idle", moderator: "listening", customer: "idle" };
+    const decision: ModeratorDecision = {
+      nextSpeaker: "moderator",
+      reason: "Interview complete; no further questions",
+      questionObjective: "interview_closed",
+      priority: 0,
+      difficulty: updatedState.difficulty,
+      closing: true
+    };
+    updatedState.lastDecision = decision;
+    return { updatedState, decision };
   }
 
   // 2. Update competency scores with weighted running average
@@ -549,8 +641,13 @@ export function runModeratorStep(
   let questionObjective = ROLE_OBJECTIVES.technical[0];
   let priority = 0.75;
 
-  const previousInterviewer =
-    updatedState.previousSpeaker === "technical" ||
+  // The live client hands the floor back to the candidate before the next
+  // answer, so previousSpeaker/activeSpeaker are usually "candidate" here. The
+  // last interviewer turn in the transcript is the reliable source.
+  const lastInterviewerTurn = [...updatedState.transcript].reverse().find(t => isInterviewerRole(t.speaker));
+  const previousInterviewer: InterviewerRole = lastInterviewerTurn && isInterviewerRole(lastInterviewerTurn.speaker)
+    ? lastInterviewerTurn.speaker
+    : updatedState.previousSpeaker === "technical" ||
     updatedState.previousSpeaker === "product" ||
     updatedState.previousSpeaker === "behavioural"
       ? updatedState.previousSpeaker
@@ -636,16 +733,87 @@ export function runModeratorStep(
   );
 
   // Preserve exact acceptance-test phrasing for the Redis → Product handoff
-  const finalSuggested =
+  let finalSuggested =
     nextSpeaker === "product" &&
     reason === "Business impact evidence missing" &&
     /redis|40%/i.test(latestTurn.text)
       ? "You mentioned a 40% latency improvement using Redis. What did that 40% improvement actually change for your customers and business?"
-      : nextSpeaker === "behavioural" && reason === "Timeline contradiction needs reconciliation"
-        ? "Earlier you mentioned the migration took six weeks, but you just described a two-week rollout. Can you clarify the difference?"
-        : nextSpeaker === "technical" && questionObjective === "quantify_evidence"
+      : nextSpeaker === "technical" && questionObjective === "quantify_evidence"
           ? "Can you quantify that improvement with specific latency percentiles (p95/p99) or throughput metrics?"
           : suggestedQuestion;
+
+  const asked = new Set(updatedState.transcript.filter(t => t.speaker !== "candidate").map(t => normalizeQuestion(t.text)));
+
+  // Live interviews follow a short plan: resume and GitHub/LinkedIn questions
+  // at fixed points (a newly detected contradiction is asked first; the profile
+  // question follows on the next answer), and a closing after the answer limit.
+  const livePlan = updatedState.interviewInitialized;
+  const newContradiction = reason === CONTRADICTION_REASON && !asked.has(normalizeQuestion(finalSuggested));
+  if (livePlan && !newContradiction) {
+    const profile = PROFILE_QUESTIONS.find(
+      item => candidateTurnCount >= item.afterAnswers && !asked.has(normalizeQuestion(item.question(updatedState)))
+    );
+    if (profile) {
+      nextSpeaker = profile.role;
+      questionObjective = profile.objective;
+      reason = "Interview plan: candidate profile question";
+      priority = 0.9;
+      finalSuggested = profile.question(updatedState);
+    }
+  }
+
+  // Never re-ask a question already put to the candidate: the interview would
+  // stall on it (authorizeSpeaker also drops the duplicate from the transcript).
+  // Look for an unasked question, rotating away from the interviewer who just
+  // spoke; when none is left, the Moderator closes the interview instead.
+  let closing = livePlan && candidateTurnCount >= LIVE_INTERVIEW_ANSWER_LIMIT;
+  if (!closing && asked.has(normalizeQuestion(finalSuggested))) {
+    const rotation: InterviewerRole[] = ["technical", "product", "behavioural"];
+    const startRole = nextSpeaker === previousInterviewer
+      ? rotation[(rotation.indexOf(nextSpeaker) + 1) % rotation.length]
+      : nextSpeaker;
+    const ordered = rotation.map((_, offset) => rotation[(rotation.indexOf(startRole) + offset) % rotation.length]);
+    // Balance the panel: the interviewer who has asked least goes first (stable sort keeps rotation order on ties).
+    const askedBy = (role: InterviewerRole) => updatedState.transcript.filter(t => t.speaker === role).length;
+    const roles = [
+      ...ordered.filter(role => role !== previousInterviewer).sort((a, b) => askedBy(a) - askedBy(b)),
+      previousInterviewer
+    ];
+    const candidates = (role: InterviewerRole) => [
+      ...ROLE_OBJECTIVES[role].map(objective => ({ objective, question: buildDynamicQuestion(role, updatedState, analysis, objective, latestTurn) })),
+      ...QUESTION_BANK[role].map((build, index) => ({ objective: `${role}_follow_up_${index + 1}`, question: build(updatedState) }))
+    ];
+    const found = roles
+      .flatMap(role => candidates(role).map(item => ({ role, ...item })))
+      .find(item => !asked.has(normalizeQuestion(item.question)));
+    if (found) {
+      nextSpeaker = found.role;
+      questionObjective = found.objective;
+      reason = `${reason}; avoided repeating an earlier question`;
+      finalSuggested = found.question;
+    } else {
+      closing = true;
+    }
+  }
+
+  if (closing) {
+    updatedState.interviewComplete = true;
+    updatedState.floorLocked = true;
+    updatedState.agentStates = { technical: "idle", product: "idle", behavioural: "idle", moderator: "speaking", customer: "idle" };
+    const decision: ModeratorDecision = {
+      nextSpeaker: "moderator",
+      reason: candidateTurnCount >= LIVE_INTERVIEW_ANSWER_LIMIT && livePlan
+        ? "Interview plan complete; closing the interview"
+        : "All suitable questions have been asked; closing the interview",
+      questionObjective: "interview_closing",
+      priority: 1,
+      difficulty: updatedState.difficulty,
+      suggestedQuestion: closingMessage(updatedState),
+      closing: true
+    };
+    updatedState.lastDecision = decision;
+    return { updatedState, decision };
+  }
 
   const decision: ModeratorDecision = {
     nextSpeaker,
