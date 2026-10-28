@@ -19,6 +19,7 @@
     "cv:worker": "tsx scripts/cv-worker.ts",
     "email:worker": "tsx scripts/email-worker.ts",
     "calendar:worker": "tsx scripts/calendar-worker.ts",
+    "assessment:worker": "tsx scripts/assessment-worker.ts",
     "test:scanner:real": "vitest run tests/real-clamav.test.ts",
     "test:e2e": "playwright test",
     "e2e:db:prepare": "node scripts/prepare-e2e-db.mjs",

@@ -61,7 +61,7 @@ Labels: **V** = VERIFIED now · **I** = INFERRED from code · **NC** = NOT CHECK
 | 8 | HR issues one-time join link + email | `api/hr/interviews/[id]/invitation` | CandidateInvitation, EmailMessage | PARTIAL | Link issue/redeem verified 4× (V). Email only **queued**: `EMAIL_PROVIDER` missing → disabled; worker not run (V) |
 | 9 | Candidate joins live AI interview | `app/interview/join` → `app/live`; `api/candidate/invitations/redeem`, `api/agora/{token,start,stop,session}`, `api/interview/{analyze,speak,interrupt}` | CandidateSession, LiveInterviewSession | PARTIAL (works; newest plan untested) | 4 phone sessions with audible questions (V). **Hardcoded** `experienceLevel: "Mid"` (`app/interview/join/page.tsx:63`); analysis is deterministic `analyzeAnswerLocally` (no LLM); job description used as JD (throwaway jobs give "Live, Test, Engineer" phrasing, V); Agora Console greeting precedes EchoPanel's (I) |
 | 10 | Transcript saved; AI assessment generated | `api/candidate/interview/finish`; `lib/server/assessment/**`, `scripts/assessment-worker.ts` | InterviewTranscript, AssessmentJob, Assessment | PARTIAL / STUB | Transcript + job saved (V). Generation: `ASSESSMENT_PROVIDER` defaults to `disabled` → worker returns `ASSESSMENT_PROVIDER_UNCONFIGURED` (I); no npm script |
-| 11 | HR reviews report; candidate notified | `app/hr/(portal)/interviews/[id]/report`; `api/hr/interviews/[id]/{assessment,assessment/review,assessment/retry,transcript}` | Assessment, EmailMessage | PARTIAL | Report/review routes exist (I); no AI content without provider; the new closing line promises a confirmation email that nothing sends automatically (I) |
+| 11 | HR reviews report; candidate notified | `app/hr/(portal)/interviews/[id]/report`; `api/hr/interviews/[id]/{assessment,assessment/review,assessment/retry,transcript}` | Assessment, EmailMessage | PARTIAL | Report/review routes exist (I); no AI content without provider; closing line now says the hiring team "will be in touch" (no email promise) (V) |
 
 TODO/FIXME/mock scan of `app`, `components`, `lib`, `scripts`: **no matches** (V). Demo-mode branches exist in ~40 files (`useIsDatabaseMode`, `DemoDataProvider`, `demo-service`) — by design (V).
 
@@ -110,7 +110,7 @@ No variable LOOKS INVALID. Files: `.env.local`, `.env.test.local`, `.env.postgre
 | Docker | `ecopanel-phase2a-postgres-1` healthy (127.0.0.1:55432); `ecopanel-phase2a-clamav-1` healthy (127.0.0.1:3310); other project `amx_*` on 5432/6379/8000 untouched | V |
 | Ports | 3400 **not listening**; 3401 node PID 48664 (started 17:39); 55432 and 3310 via Docker | V |
 | 3401 build | Serves `.next-live` BUILD_ID `g9r42NVoQA0HH5cIP86TU` (built 17:38); readiness `ready`, DB ok | V |
-| Latest orchestrator in build? | **NO.** `lib/orchestrator.ts` changed 18:10; build lacks resume, GitHub/LinkedIn, confirmation-email closing and near-repeat fix (has older closing + repeat guard) | V |
+| Latest orchestrator in build? | **NO.** `lib/orchestrator.ts` changed 18:10; build lacks resume, GitHub/LinkedIn, plan closing and near-repeat fix (has older closing + repeat guard). *Superseded by the rebuild after the "Start live server" changes.* | V |
 | Tunnel | `cloudflared` PID 39968 running since 14:41; public `/api/health/live` → 200; tunnel host is baked into the 3401 server build (= NEXT_PUBLIC_APP_URL for links) | V |
 | 3401 log | `scratchpad/server-3401.log` (file-based) | V |
 
@@ -129,7 +129,7 @@ No `LiveInterviewSession` outside `STOPPED` → no agent query needed. All three
 
 ## 9. Risks and blockers for a live phone test tomorrow (most severe first)
 
-1. **3401 runs a stale build** — the 7-answer plan (resume, GitHub/LinkedIn, confirmation-email closing) and near-repeat fix are not live; a test now would exercise old behaviour (V).
+1. **3401 runs a stale build** — the 7-answer plan (resume, GitHub/LinkedIn, closing) and near-repeat fix are not live; a test now would exercise old behaviour (V).
 2. **Quick Tunnel/process fragility** — tunnel, 3401 and Docker containers do not survive sleep/reboot; a new tunnel URL forces a rebuild (URL is baked in) (V/I).
 3. **Low memory (18% free)** — a background server shell was already reaped once today; builds can be killed (V).
 4. **~250 uncommitted files on `master`** — a single bad `git` command or disk issue loses Phase 2A–2E and all live fixes (V).
@@ -144,7 +144,24 @@ No `LiveInterviewSession` outside `STOPPED` → no agent query needed. All three
 | # | Task | Est. |
 |---|---|---|
 | 1 | Check Docker/tunnel/3401; if tunnel URL changed get the new one; rebuild `.next-live` with the 18:10 orchestrator and restart only 3401 (explicit `APP_DATA_MODE`/`DATABASE_URL` overrides); verify markers + readiness | 20 min |
-| 2 | One live phone test (headphones): 7 answers → resume Q after #2, GitHub/LinkedIn Q after #4, confirmation-email closing after #7, silence afterwards; verify transcript in DB | 25 min |
+| 2 | One live phone test (headphones): 7 answers → resume Q after #2, GitHub/LinkedIn Q after #4, neutral closing after #7, silence afterwards; verify transcript in DB | 25 min |
 | 3 | Secure the work: review the diff, remove stray root artifacts (with approval), commit to a feature branch (not `master`) | 45 min |
 | 4 | Scope test workers to their own rows (outbox + assessment queue) so full-suite runs stop touching live-test data; move the question bank out of `orchestrator.ts` (<500 lines) | 1.5 h |
 | 5 | Decide the post-interview path: configure Resend sandbox (or reword the closing), add `assessment:worker` script + `.env.example` entries, pass real experience level/JD into the live interview | 1–2 h |
+
+## Start live server (port 3401)
+
+`scripts/start-live.ps1` is the only supported way to start the isolated live-acceptance server. It never touches port 3400 and never prints a value.
+
+**One-time setup:** `.env.live.local` (git-ignored, repo root) holds `APP_DATA_MODE=database`, `DATABASE_URL` (ecopanel_test), `APP_PUBLIC_URL` and `NEXT_PUBLIC_APP_URL` (public https tunnel), `AUTH_SECRET`, `CV_STORAGE_DIR`, `CV_SCANNER_PROVIDER=clamav`, `CV_CLAMAV_HOST=127.0.0.1`, `CV_CLAMAV_PORT=3310` and the `AGORA_*` values. Never commit or print it.
+
+**Start (existing build):** stop the old 3401 process first, then
+`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-live.ps1`
+
+**Rebuild and start (after code changes):** add `-Build` (writes `scratchpad/build-live.log`; needs about 4 GB free RAM).
+
+**New tunnel URL:** update `APP_PUBLIC_URL` in `.env.live.local` and restart. No rebuild is needed: the server reads `APP_PUBLIC_URL` at runtime and it overrides the build-time `NEXT_PUBLIC_APP_URL` for candidate links, auth base URL and the calendar callback.
+
+**The script refuses to start** (exit 1, `REFUSED: …`) when the env file is missing, `APP_DATA_MODE` is not `database`, the database is not `ecopanel_test`, `APP_PUBLIC_URL` is not https, `scripts/assert-safe-db.mjs` rejects the URL (non-local host or non-test name), `.next-live` has no build, or port 3401 is already in use. All refusal paths were exercised with throwaway env files.
+
+**Logs:** `scratchpad/server-3401.log` (git-ignored). The server keeps running after the launching shell exits.
