@@ -15,14 +15,19 @@
 .PARAMETER Build
   Rebuild .next-live with the same safe environment before starting.
 
+.PARAMETER Rollback
+  Start from the known-good backup .next-live-h9v (git tag known-good-h9v)
+  instead of .next-live. Cannot be combined with -Build.
+
 .PARAMETER EnvFile
   Environment file to load (default .env.live.local in the repository root).
 
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-live.ps1
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-live.ps1 -Build
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-live.ps1 -Rollback
 #>
-param([switch]$Build, [string]$EnvFile = "")
+param([switch]$Build, [switch]$Rollback, [string]$EnvFile = "")
 
 $ErrorActionPreference = "Stop"
 $Port = 3401
@@ -33,6 +38,9 @@ function Stop-WithError([string]$Message) {
   Write-Host "REFUSED: $Message" -ForegroundColor Red
   exit 1
 }
+
+if ($Build -and $Rollback) { Stop-WithError "-Rollback starts the known-good backup; it cannot be combined with -Build." }
+$DistDir = if ($Rollback) { ".next-live-h9v" } else { ".next-live" }
 
 # 1. Load the env file into this process only (values are never echoed).
 if (-not $EnvFile) { $EnvFile = Join-Path $Root ".env.live.local" }
@@ -67,9 +75,9 @@ if (Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyCon
   Stop-WithError "port $Port is already in use. Stop the old 3401 server first."
 }
 
-$env:NEXT_DIST_DIR = ".next-live"
+$env:NEXT_DIST_DIR = $DistDir
 $env:NODE_ENV = "production"
-Write-Host "Checks passed: database mode, ecopanel_test, https public URL, safe-db guard, port $Port free."
+Write-Host "Checks passed: database mode, ecopanel_test, https public URL, safe-db guard, port $Port free. Build: $DistDir"
 
 # 3. Optional build with the same environment.
 if ($Build) {
@@ -79,7 +87,7 @@ if ($Build) {
   $buildExit = Invoke-Native { & npx next build *> $BuildLog }
   if ($buildExit -ne 0) { Stop-WithError "build failed; see scratchpad/build-live.log." }
 }
-if (-not (Test-Path (Join-Path $Root ".next-live\BUILD_ID"))) { Stop-WithError ".next-live has no build. Run with -Build." }
+if (-not (Test-Path (Join-Path $Root "$DistDir\BUILD_ID"))) { Stop-WithError "$DistDir has no build. Run with -Build (or without -Rollback)." }
 
 # 4. Start detached; output goes to the log file only.
 $LogDir = Join-Path $Root "scratchpad"

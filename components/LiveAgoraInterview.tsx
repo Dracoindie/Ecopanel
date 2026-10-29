@@ -13,7 +13,6 @@ import {
 } from "@/lib/orchestrator";
 import {
   createAgentTurnAuditor,
-  createAnswerAccumulator,
   createAuthorizedSpeechLedger,
   createSerialTurnQueue,
   createSessionScope,
@@ -24,12 +23,12 @@ import {
   normalizeForMatch,
   persistedInterviewId,
   type AgentTurnAuditor,
-  type AnswerAccumulator,
   type AuthorizedSpeechLedger,
   type SerialTurnQueue,
   type SessionScope,
   type SessionToken
 } from "@/lib/live-helpers";
+import { createTurnTaker, type TurnTaker } from "@/lib/live-turn-taking";
 
 type Session = {
   appId: string;
@@ -126,7 +125,12 @@ export function LiveAgoraInterview() {
   const audioRef = useRef<HTMLDivElement>(null);
   const floorBusyRef = useRef(false);
   const turnQueueRef = useRef<SerialTurnQueue<CandidateTurnEvent> | null>(null);
-  const answerAccumulatorRef = useRef<AnswerAccumulator | null>(null);
+  const turnTakerRef = useRef<TurnTaker | null>(null);
+  const lastCandidateTurnIdRef = useRef<string | null>(null);
+  const agentAudioTrackRef = useRef<any>(null);
+  const levelTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const diagTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const diagBufferRef = useRef<Array<Record<string, string | number | boolean>>>([]);
   const authorizedSpeechRef = useRef<AuthorizedSpeechLedger | null>(null);
   // What the agent was last asked to say; candidate turns that merely repeat it are speaker echo.
   const lastAiUtteranceRef = useRef("");
@@ -155,6 +159,19 @@ export function LiveAgoraInterview() {
   const diag = (event: string, fields: Record<string, string | number | boolean> = {}) => {
     const elapsed = startTimeRef.current ? Math.round(performance.now() - startTimeRef.current) : 0;
     console.info(`[EchoPanel Diag] +${elapsed}ms ${event}`, fields);
+    // Epoch timestamps are sent to the server log for comparison with Agora's turn timings.
+    if (diagBufferRef.current.length < 500) diagBufferRef.current.push({ event, at: Date.now(), ...fields });
+  };
+
+  const flushDiag = () => {
+    const events = diagBufferRef.current.splice(0, 100);
+    if (!events.length) return;
+    void fetch("/api/interview/diag", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({ events })
+    }).catch(() => undefined);
   };
 
   useEffect(() => {
@@ -175,13 +192,34 @@ export function LiveAgoraInterview() {
     }
   }, []);
 
-  const broadcastAuthorizedSpeech = async (text: string, sessionToken: SessionToken) => {
+  const broadcastAuthorizedSpeech = async (text: string, sessionToken: SessionToken, speaker = "interviewer") => {
     const scope = sessionScopeRef.current;
     if (!scope?.isCurrent(sessionToken)) return false;
     const session = sessionRef.current;
     if (!session?.agentId || !session?.channel || !session?.agentUid || !text.trim()) return false;
+    // The candidate is still talking: record the question now, the turn taker speaks it when they finish.
+    if (turnTakerRef.current && !turnTakerRef.current.requestQuestion({ text, speaker })) {
+      authorizedSpeechRef.current?.authorize(text);
+      lastAiUtteranceRef.current = text;
+      return true;
+    }
     if (floorBusyRef.current) return false;
     floorBusyRef.current = true;
+    try {
+      return await speakToAgent(text, sessionToken, speaker);
+    } finally {
+      setTimeout(() => {
+        if (scope.isCurrent(sessionToken)) floorBusyRef.current = false;
+      }, 1200);
+    }
+  };
+
+  // Questions are not interruptable on Agora's side: only the turn taker cuts
+  // them, and only for sustained, recognised candidate speech.
+  const speakToAgent = async (text: string, sessionToken: SessionToken, speaker: string) => {
+    const scope = sessionScopeRef.current;
+    const session = sessionRef.current;
+    if (!scope?.isCurrent(sessionToken) || !session?.agentId || !session?.channel || !session?.agentUid) return false;
     try {
       const response = await fetch("/api/interview/speak", {
         method: "POST",
@@ -193,7 +231,7 @@ export function LiveAgoraInterview() {
           agentUid: Number(session.agentUid),
           text,
           priority: "INTERRUPT",
-          interruptable: true
+          interruptable: false
         })
       });
       if (!response.ok) {
@@ -205,14 +243,11 @@ export function LiveAgoraInterview() {
       diag("speak-accepted", { chars: text.length });
       authorizedSpeechRef.current?.authorize(text);
       lastAiUtteranceRef.current = text;
+      turnTakerRef.current?.questionSent({ text, speaker });
       return true;
     } catch (speakErr) {
       if (scope.isCurrent(sessionToken)) console.warn("Agora speak broadcast error:", speakErr);
       return false;
-    } finally {
-      setTimeout(() => {
-        if (scope.isCurrent(sessionToken)) floorBusyRef.current = false;
-      }, 1200);
     }
   };
 
@@ -273,6 +308,7 @@ export function LiveAgoraInterview() {
 
     turnSequenceRef.current += 1;
     const localTurnId = `turn-${Date.now()}-${turnSequenceRef.current}`;
+    lastCandidateTurnIdRef.current = localTurnId;
     const candidateTurn: TranscriptTurn = {
       id: localTurnId,
       speaker: "candidate",
@@ -381,8 +417,8 @@ export function LiveAgoraInterview() {
     process: turn => processCandidateTurnRef.current(turn, sessionToken),
     onAccepted: () => {
       // Pre-empt autonomous audio as soon as the turn is accepted, even while
-      // an earlier turn's analysis is still pending.
-      void interruptAutonomousAgent(sessionToken);
+      // an earlier turn's analysis is still pending, but never cut EchoPanel's own question.
+      if (!turnTakerRef.current?.questionActive()) void interruptAutonomousAgent(sessionToken);
     },
     onError: (error, turn) => {
       if (sessionScopeRef.current?.isCurrent(sessionToken)) {
@@ -406,14 +442,38 @@ export function LiveAgoraInterview() {
     return turnQueueRef.current?.enqueue({ ...turn, text }) ?? false;
   };
 
-  // Voice segments are merged into one answer until the candidate has been quiet
-  // for ANSWER_GRACE_MS, so a pause mid-answer does not advance the interview.
-  const createSessionAnswerAccumulator = (sessionToken: SessionToken) => createAnswerAccumulator({
+  // Speech that continues the previous answer is appended to it; no new answer is counted.
+  const mergeContinuation = (text: string) => {
+    const id = lastCandidateTurnIdRef.current;
+    if (!id || !text.trim()) return;
+    const apply = (state: SharedInterviewState): SharedInterviewState => ({
+      ...state,
+      transcript: state.transcript.map(t => (t.id === id ? { ...t, text: `${t.text} ${text.trim()}` } : t))
+    });
+    interviewStateRef.current = apply(interviewStateRef.current);
+    setInterviewState(prev => apply(prev));
+  };
+
+  // Turn taking: segments merge into one answer until the candidate is quiet;
+  // a question is cut only by sustained, recognised speech, and a question the
+  // candidate cut while still continuing their answer is asked again.
+  const createSessionTurnTaker = (sessionToken: SessionToken) => createTurnTaker({
     onAnswer: answer => {
       if (!sessionScopeRef.current?.isCurrent(sessionToken)) return;
-      diag("answer-complete", { segments: answer.segments, words: answer.text.split(/\s+/).length });
       enqueueCandidateTurn({ text: answer.text, fallbackKey: answer.key }, sessionToken);
-    }
+    },
+    onContinuation: answer => {
+      if (!sessionScopeRef.current?.isCurrent(sessionToken)) return;
+      mergeContinuation(answer.text);
+    },
+    onAsk: question => {
+      if (!sessionScopeRef.current?.isCurrent(sessionToken)) return;
+      void speakToAgent(question.text, sessionToken, question.speaker);
+    },
+    onInterruptQuestion: () => {
+      if (sessionScopeRef.current?.isCurrent(sessionToken)) void interruptAutonomousAgent(sessionToken);
+    },
+    onDiag: (event, fields) => diag(event, fields)
   });
 
   const acceptVoiceSegment = (segment: { text: string; key: string }, sessionToken: SessionToken) => {
@@ -425,11 +485,13 @@ export function LiveAgoraInterview() {
       diag("candidate-echo-ignored", { words: text.split(/\s+/).length });
       return;
     }
-    if (answerAccumulatorRef.current?.addFinal({ text, key: segment.key })) {
-      diag("answer-segment", { pending: answerAccumulatorRef.current.pending() });
-      // Stop any autonomous agent reply to this pause right away.
-      void interruptAutonomousAgent(sessionToken);
-    }
+    const turnTaker = turnTakerRef.current;
+    if (!turnTaker) return;
+    turnTaker.candidateTranscript({ final: true, text, key: segment.key });
+    diag("answer-segment");
+    // Stop an autonomous agent reply, but never EchoPanel's own question:
+    // only sustained, recognised speech may cut that (handled by the turn taker).
+    if (!turnTaker.questionActive()) void interruptAutonomousAgent(sessionToken);
   };
 
   const ensureActiveSessionToken = () => {
@@ -443,7 +505,7 @@ export function LiveAgoraInterview() {
     assessmentAbortRef.current?.abort();
     assessmentAbortRef.current = null;
     turnQueueRef.current?.reset();
-    answerAccumulatorRef.current?.reset();
+    turnTakerRef.current?.reset();
     turnQueueRef.current = createSessionTurnQueue(sessionToken);
     return sessionToken;
   };
@@ -488,7 +550,7 @@ export function LiveAgoraInterview() {
     const stopGeneration = scope.invalidate();
     activeSessionTokenRef.current = null;
     turnQueueRef.current?.reset();
-    answerAccumulatorRef.current?.reset();
+    turnTakerRef.current?.reset();
     turnQueueRef.current = null;
     assessmentAbortRef.current?.abort();
     assessmentAbortRef.current = null;
@@ -584,9 +646,9 @@ export function LiveAgoraInterview() {
     assessmentAbortRef.current?.abort();
     assessmentAbortRef.current = null;
     turnQueueRef.current?.reset();
-    answerAccumulatorRef.current?.reset();
+    turnTakerRef.current?.reset();
     turnQueueRef.current = createSessionTurnQueue(sessionToken);
-    answerAccumulatorRef.current = createSessionAnswerAccumulator(sessionToken);
+    turnTakerRef.current = createSessionTurnTaker(sessionToken);
     if (floorTimerRef.current) {
       clearTimeout(floorTimerRef.current);
       floorTimerRef.current = null;
@@ -777,7 +839,7 @@ export function LiveAgoraInterview() {
         }
         // The candidate is still talking (newest segment not final yet): keep waiting.
         if (latestCandidateEntry && latestCandidateEntry.metadata?.final !== true && extractTranscriptText(latestCandidateEntry)) {
-          answerAccumulatorRef.current?.noteSpeech();
+          turnTakerRef.current?.candidateTranscript({ final: false, text: extractTranscriptText(latestCandidateEntry), key: "interim" });
         }
       });
 
@@ -827,7 +889,7 @@ export function LiveAgoraInterview() {
       const failureGeneration = scope.invalidate();
       activeSessionTokenRef.current = null;
       turnQueueRef.current?.reset();
-      answerAccumulatorRef.current?.reset();
+      turnTakerRef.current?.reset();
       turnQueueRef.current = null;
       setIsAnalyzing(false);
       interruptInFlightRef.current = null;
@@ -844,7 +906,7 @@ export function LiveAgoraInterview() {
     activeSessionTokenRef.current = null;
     assessmentAbortRef.current?.abort();
     turnQueueRef.current?.reset();
-    answerAccumulatorRef.current?.reset();
+    turnTakerRef.current?.reset();
     turnQueueRef.current = null;
     void cleanupConnections();
   }, []);
