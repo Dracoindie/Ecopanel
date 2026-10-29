@@ -19,8 +19,9 @@
   With -Build: build .next-live and exit without starting the server.
 
 .PARAMETER Rollback
-  Start from the known-good backup .next-live-h9v (git tag known-good-h9v)
-  instead of .next-live. Cannot be combined with -Build.
+  Start from the known-good backup .next-live-final (git tag pre-redesign: email,
+  Groq and live interview working) instead of .next-live. Cannot be combined
+  with -Build. The older .next-live-h9v (tag known-good-h9v) lacks email and Groq.
 
 .PARAMETER EnvFile
   Environment file to load (default .env.live.local in the repository root).
@@ -44,7 +45,7 @@ function Stop-WithError([string]$Message) {
 
 if ($Build -and $Rollback) { Stop-WithError "-Rollback starts the known-good backup; it cannot be combined with -Build." }
 if ($BuildOnly -and -not $Build) { Stop-WithError "-BuildOnly requires -Build." }
-$DistDir = if ($Rollback) { ".next-live-h9v" } else { ".next-live" }
+$DistDir = if ($Rollback) { ".next-live-final" } else { ".next-live" }
 
 # 1. Load the env file into this process only (values are never echoed).
 if (-not $EnvFile) { $EnvFile = Join-Path $Root ".env.live.local" }

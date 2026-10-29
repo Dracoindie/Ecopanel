@@ -131,7 +131,7 @@ Add-Check "3401 readiness" $serverOk $serverDetail
 
 # 5. Which build is served: only the served build's manifest returns 200.
 $served = $null
-foreach ($dir in ".next-live", ".next-live-h9v") {
+foreach ($dir in ".next-live", ".next-live-final", ".next-live-h9v") {
   $idFile = Join-Path $Root "$dir\BUILD_ID"
   if (-not (Test-Path $idFile)) { continue }
   $buildId = (Get-Content $idFile -Raw).Trim()

@@ -40,7 +40,7 @@ Stopping a worker ends it immediately. If an email was being sent at that moment
 
 ## What the check covers
 
-Docker running · Postgres healthy and reachable as `ecopanel_test` (on the port in `DATABASE_URL`) · ClamAV container healthy and the app's scanner check ok · 3401 `/api/health/ready` · which build is served (`.next-live` or the `.next-live-h9v` rollback) · exactly one cv, email and assessment worker running · funnel on, proxying 3401, and matching `APP_PUBLIC_URL` · public `/api/health/live` returns 200 · env keys present (Agora, Resend, Groq; names only) · `EMAIL_MODE=test` · no Agora session left `RUNNING` · no queued or sending emails · no pending assessment, CV-scan or calendar jobs.
+Docker running · Postgres healthy and reachable as `ecopanel_test` (on the port in `DATABASE_URL`) · ClamAV container healthy and the app's scanner check ok · 3401 `/api/health/ready` · which build is served (`.next-live`, the `.next-live-final` rollback, or the old `.next-live-h9v`) · exactly one cv, email and assessment worker running · funnel on, proxying 3401, and matching `APP_PUBLIC_URL` · public `/api/health/live` returns 200 · env keys present (Agora, Resend, Groq; names only) · `EMAIL_MODE=test` · no Agora session left `RUNNING` · no queued or sending emails · no pending assessment, CV-scan or calendar jobs.
 
 No secret is printed. Env values are only tested for presence. The exceptions are `EMAIL_MODE` and the Groq model name, which are not secret.
 
@@ -53,13 +53,25 @@ Run **EchoPanel Start** once more first. Most failures right after boot are just
 | Docker running | Open Docker Desktop and wait for "Engine running", then Start again. |
 | Postgres / ClamAV | `docker ps -a`. If a container is missing, recreate it: `docker compose -f compose.phase2a.yml --env-file <env with POSTGRES_USER/POSTGRES_PASSWORD> up -d`. ClamAV can take about 3 minutes after Docker starts, so wait and check again. Never touch the `amx_*` containers. |
 | 3401 readiness | Read `scratchpad/server-3401.log`. If 3401 is stuck, click Stop, then Start. If `start-live.ps1` says `REFUSED`, the message names the bad setting. |
-| Build served | Stop, then Start. To fall back to the known-good build: `scripts/start-live.ps1 -Rollback`. |
+| Build served | Stop, then Start. If the new build itself is the problem, roll back (below). |
 | Tailscale funnel | Make sure Tailscale is running and logged in (tray icon), then Start again (it runs `tailscale funnel --bg 3401`). If it says the URL does not match, `APP_PUBLIC_URL` in `.env.live.local` is not the funnel URL. |
 | Public /api/health/live | The funnel row passes but the public URL fails: check internet access, run `tailscale funnel status`, and wait a minute (DNS). If it stays down, use the cloudflared fallback below. |
 | Env rows | The named key is missing from `.env.live.local`. Add it there; never commit or print it. |
 | No Agora session RUNNING | A live interview did not end cleanly. Ending it from the interview page stops the agent; otherwise it expires on its own (`expiresAt`). Ask before changing rows by hand. |
 | Workers | "not running": read `scratchpad/worker-<name>.log` (usually a config error), then Start again. "duplicate": click Stop, then Start. |
 | No queued emails / No pending jobs | With the workers running, these clear within seconds. If a row stays, the detail lists the ids: check the Workers row and the worker log. To leave a leftover unprocessed, cancel it explicitly before starting the workers. |
+
+## Rollback to the pre-redesign build
+
+If anything looks or behaves wrong in the redesigned build, run this one command:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/demo-up.ps1 -Rollback
+```
+
+It stops the demo and serves `.next-live-final` again: the last build before the visual redesign (git tag `pre-redesign`), with email, Groq and the live interview all working. Workers, funnel and URL stay the same. To go back to the new build: **EchoPanel Stop**, then **EchoPanel Start**.
+
+The older `.next-live-h9v` build (tag `known-good-h9v`) lacks email and Groq; don't use it for the demo.
 
 ## Emergency fallback: cloudflared quick tunnel
 

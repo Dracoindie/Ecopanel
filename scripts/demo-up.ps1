@@ -17,9 +17,16 @@
   Safe to run repeatedly: every step is skipped when already done, so it never
   starts a second server, worker, container or funnel. Never prints a secret.
 
+.PARAMETER Rollback
+  Serve the known-good pre-redesign build .next-live-final instead of .next-live.
+  If 3401 is serving anything else, the demo is stopped first (demo-down.ps1) and
+  started again on that build.
+
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/demo-up.ps1
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/demo-up.ps1 -Rollback
 #>
+param([switch]$Rollback)
 $ErrorActionPreference = "Continue"
 $ProgressPreference = "SilentlyContinue"
 $Root = Split-Path -Parent $PSScriptRoot
@@ -88,11 +95,28 @@ if (-not (Test-Path $tailscale)) {
 
 # 4. The 3401 server: never start a second one.
 $listener = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($listener -and $Rollback) {
+  # Only the served build's manifest returns 200.
+  $finalId = (Get-Content (Join-Path $Root ".next-live-final\BUILD_ID") -Raw -ErrorAction SilentlyContinue)
+  $servingFinal = $false
+  if ($finalId) {
+    try { $servingFinal = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Uri "http://127.0.0.1:$Port/_next/static/$($finalId.Trim())/_buildManifest.js").StatusCode -eq 200 } catch { }
+  }
+  if ($servingFinal) {
+    Step "3401 already serves the rollback build .next-live-final."
+  } else {
+    Step "Rollback: stopping the current demo so 3401 can restart on .next-live-final ..."
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "demo-down.ps1")
+    $listener = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue | Select-Object -First 1
+  }
+}
 if ($listener) {
   Step "3401 already running (pid $($listener.OwningProcess)); not starting another."
 } else {
-  Step "Starting 3401 with start-live.ps1 ..."
-  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "start-live.ps1")
+  $startArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $PSScriptRoot "start-live.ps1"))
+  if ($Rollback) { $startArgs += "-Rollback" }
+  Step "Starting 3401 with start-live.ps1 $(if ($Rollback) { '-Rollback (.next-live-final)' }) ..."
+  & powershell @startArgs
   if ($LASTEXITCODE -ne 0) { Step "start-live.ps1 refused or failed (see above)." }
 }
 $deadline = (Get-Date).AddSeconds(60)
