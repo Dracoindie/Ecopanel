@@ -310,7 +310,7 @@ export function createRecentKeyTracker(options: RecentKeyTrackerOptions = {}): R
 }
 
 /** Quiet time after the last candidate speech before a finalized answer is analyzed. */
-export const ANSWER_GRACE_MS = 2000;
+export const ANSWER_GRACE_MS = 1500;
 
 export type AnswerSegment = { text: string; key: string };
 
