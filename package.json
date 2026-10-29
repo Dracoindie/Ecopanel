@@ -23,7 +23,10 @@
     "test:scanner:real": "vitest run tests/real-clamav.test.ts",
     "test:e2e": "playwright test",
     "e2e:db:prepare": "node scripts/prepare-e2e-db.mjs",
-    "build:e2e": "node scripts/build-e2e.mjs"
+    "build:e2e": "node scripts/build-e2e.mjs",
+    "email:send-one": "tsx scripts/email-worker.ts --env-file .env.live.local --message",
+    "email:status": "tsx scripts/email-status.ts --env-file .env.live.local --message",
+    "assessment:run-one": "tsx scripts/assessment-worker.ts --env-file .env.live.local --job"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

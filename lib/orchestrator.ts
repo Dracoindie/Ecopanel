@@ -281,8 +281,12 @@ const QUESTION_BANK: Record<InterviewerRole, Array<(state: SharedInterviewState)
   ]
 };
 
-function closingMessage(state: SharedInterviewState): string {
-  return `Thank you for your time today, ${state.candidateName}. That completes your interview for the ${state.targetRole} role. The hiring team will review your answers and be in touch about next steps. You can end the interview now.`;
+/** Mentions the confirmation email only when one will actually be sent. */
+export function closingMessage(state: SharedInterviewState, confirmationEmail = false): string {
+  const next = confirmationEmail
+    ? "You will receive a confirmation email shortly, and the hiring team will review your answers and be in touch about next steps."
+    : "The hiring team will review your answers and be in touch about next steps.";
+  return `Thank you for your time today, ${state.candidateName}. That completes your interview for the ${state.targetRole} role. ${next} You can end the interview now.`;
 }
 
 function summarizeClaimText(text: string): string {
@@ -527,7 +531,8 @@ function buildDynamicQuestion(
 export function runModeratorStep(
   state: SharedInterviewState,
   latestTurn: TranscriptTurn,
-  analysis: AnswerAnalysis
+  analysis: AnswerAnalysis,
+  options: { confirmationEmail?: boolean } = {}
 ): {
   updatedState: SharedInterviewState;
   decision: ModeratorDecision;
@@ -830,7 +835,7 @@ export function runModeratorStep(
       questionObjective: "interview_closing",
       priority: 1,
       difficulty: updatedState.difficulty,
-      suggestedQuestion: closingMessage(updatedState),
+      suggestedQuestion: closingMessage(updatedState, options.confirmationEmail),
       closing: true
     };
     updatedState.lastDecision = decision;

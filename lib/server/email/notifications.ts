@@ -18,6 +18,7 @@ export type EmailNotificationKind =
   | "interview_reschedule"
   | "interview_cancel"
   | "interview_reminder"
+  | "interview_completed"
   | "offer"
   | "rejection";
 
@@ -40,13 +41,14 @@ const NOTIFICATION_TEMPLATES: Record<EmailNotificationKind, NotificationTemplate
   interview_reschedule: { templateId: "tpl-interview-reschedule", kind: "interview-reschedule", label: "Interview reschedule" },
   interview_cancel: { templateId: "tpl-interview-cancel", kind: "interview-cancel", label: "Interview cancellation" },
   interview_reminder: { templateId: "tpl-interview-reminder", kind: "interview-reminder", label: "Interview reminder" },
+  interview_completed: { templateId: "tpl-interview-completed", kind: "interview-completed", label: "Interview completed" },
   offer: { templateId: "tpl-offer", kind: "offer", label: "Selection / offer" },
   rejection: { templateId: "tpl-rejection", kind: "rejection", label: "Rejection" }
 };
 
 const STAGE_NOTIFICATION: Partial<Record<string, EmailNotificationKind>> = {
+  // Shortlisting sends no email: candidates hear next from the interview invitation.
   "In Review": "status_update",
-  Shortlisted: "shortlisted",
   Selected: "offer",
   Rejected: "rejection"
 };

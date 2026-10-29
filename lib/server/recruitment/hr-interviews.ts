@@ -383,26 +383,8 @@ export async function createHrInterview(context: HrContext, raw: unknown): Promi
         actorLabel: context.user.name
       }
     });
-    if (input.notify) {
-      await enqueueHiringNotification(tx, {
-        organizationId: context.organization.id,
-        applicationId: application.id,
-        interviewId: created.id,
-        kind: "interview_invite",
-        scheduledAt: created.scheduledAt,
-        timezone: created.timezone,
-        ...notificationActor(context)
-      });
-      await enqueueHiringNotification(tx, {
-        organizationId: context.organization.id,
-        applicationId: application.id,
-        interviewId: created.id,
-        kind: "interview_reminder",
-        scheduledAt: created.scheduledAt,
-        timezone: created.timezone,
-        ...notificationActor(context)
-      });
-    }
+    // No email on scheduling: the single invitation is the one-time-link email
+    // sent by inviteCandidateToInterview, so candidates never get two invites.
     await enqueueInterviewCalendarSync(tx, {
       organizationId: context.organization.id,
       interviewId: created.id,

@@ -10,8 +10,22 @@ import {
 } from "@/lib/server/assessment/worker";
 import { describeError, logError, logInfo, logWarn } from "@/lib/server/logger";
 
+// Options: --env-file <path> loads that file instead of .env.local (e.g. .env.live.local);
+// --job <AssessmentJob id> processes only that pending job once, then exits.
+function argValue(name: string) {
+  const index = process.argv.indexOf(name);
+  const value = index >= 0 ? process.argv[index + 1] : undefined;
+  if (index >= 0 && (!value || value.startsWith("--"))) throw new Error(`${name} needs a value.`);
+  return value;
+}
+const envFile = argValue("--env-file");
+const onlyJobId = argValue("--job");
+
 if (process.env.ASSESSMENT_WORKER_SKIP_ENV_FILE !== "true") {
-  if (existsSync(".env.local")) process.loadEnvFile(".env.local");
+  if (envFile) {
+    if (!existsSync(envFile)) throw new Error(`Env file not found: ${envFile}`);
+    process.loadEnvFile(envFile);
+  } else if (existsSync(".env.local")) process.loadEnvFile(".env.local");
   else if (existsSync(".env")) process.loadEnvFile(".env");
 }
 
@@ -82,7 +96,7 @@ async function loop() {
   const config = getAssessmentConfig();
   const provider = getAssessmentProvider();
   if (!provider) {
-    logError("Assessment provider is not configured. Set ASSESSMENT_PROVIDER=openai, OPENAI_API_KEY, and OPENAI_ASSESSMENT_MODEL.", {
+    logError("Assessment provider is not configured. Set ASSESSMENT_PROVIDER=groq with GROQ_API_KEY, or openai with OPENAI_API_KEY and OPENAI_ASSESSMENT_MODEL.", {
       issue: config.configurationIssue
     });
     process.exitCode = 1;
@@ -95,6 +109,26 @@ async function loop() {
     model: provider.model,
     pollMs
   });
+
+  if (onlyJobId) {
+    const result = await processNextAssessmentJob(prisma, { workerId, provider, jobId: onlyJobId });
+    if (!result) {
+      logError("Assessment job is not pending and due; nothing processed", { workerId, jobId: onlyJobId });
+      process.exitCode = 1;
+      return;
+    }
+    processed = 1;
+    logInfo("Assessment job processed", {
+      workerId,
+      jobId: result.jobId,
+      outcome: result.outcome,
+      status: result.status,
+      failureCode: result.failureCode,
+      assessmentId: result.assessmentId
+    });
+    if (result.outcome !== "completed") process.exitCode = 1;
+    return;
+  }
 
   while (!stopping) {
     lastLoopAt = new Date().toISOString();

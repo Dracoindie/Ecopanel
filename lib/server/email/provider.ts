@@ -138,3 +138,36 @@ export function createResendProvider(): EmailProvider | null {
 export function getEmailProvider(): EmailProvider | null {
   return createResendProvider();
 }
+
+export type ResendStatusResult =
+  | { ok: true; lastEvent: string; createdAt: string | null }
+  | { ok: false; code: string; message: string };
+
+/** Delivery proof without a webhook: Resend's last recorded event for a sent message. */
+export async function fetchResendEmailStatus(
+  providerMessageId: string,
+  fetcher: typeof fetch = fetch
+): Promise<ResendStatusResult> {
+  const config = getEmailConfig();
+  if (!config.apiKey) return { ok: false, code: "NOT_CONFIGURED", message: "RESEND_API_KEY is not configured." };
+  if (!/^[A-Za-z0-9-]{8,64}$/.test(providerMessageId)) {
+    return { ok: false, code: "INVALID_ID", message: "Provider message id is not valid." };
+  }
+  let response: Response;
+  try {
+    response = await fetcher(`https://api.resend.com/emails/${providerMessageId}`, {
+      headers: { Authorization: `Bearer ${config.apiKey}` },
+      signal: AbortSignal.timeout(config.timeoutMs)
+    });
+  } catch (error) {
+    return { ok: false, code: "PROVIDER_CONNECTION_FAILED", message: safeProviderError(error) };
+  }
+  const body = await response.json().catch(() => null) as { last_event?: unknown; created_at?: unknown; message?: unknown } | null;
+  if (!response.ok) {
+    return { ok: false, code: readErrorCode(body, `PROVIDER_HTTP_${response.status}`), message: safeProviderError(body?.message ?? `HTTP ${response.status}`) };
+  }
+  if (typeof body?.last_event !== "string") {
+    return { ok: false, code: "PROVIDER_RESPONSE_INVALID", message: "Provider response has no last_event." };
+  }
+  return { ok: true, lastEvent: body.last_event, createdAt: typeof body.created_at === "string" ? body.created_at : null };
+}

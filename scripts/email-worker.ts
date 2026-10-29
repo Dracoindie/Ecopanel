@@ -12,8 +12,22 @@ import {
 import { describeError, logError, logInfo, logWarn } from "@/lib/server/logger";
 import { cleanupRateLimitBuckets } from "@/lib/server/rate-limit";
 
+// Options: --env-file <path> loads that file instead of .env.local (e.g. .env.live.local);
+// --message <EmailMessage id> sends only that queued message once, then exits.
+function argValue(name: string) {
+  const index = process.argv.indexOf(name);
+  const value = index >= 0 ? process.argv[index + 1] : undefined;
+  if (index >= 0 && (!value || value.startsWith("--"))) throw new Error(`${name} needs a value.`);
+  return value;
+}
+const envFile = argValue("--env-file");
+const onlyMessageId = argValue("--message");
+
 if (process.env.EMAIL_WORKER_SKIP_ENV_FILE !== "true") {
-  if (existsSync(".env.local")) process.loadEnvFile(".env.local");
+  if (envFile) {
+    if (!existsSync(envFile)) throw new Error(`Env file not found: ${envFile}`);
+    process.loadEnvFile(envFile);
+  } else if (existsSync(".env.local")) process.loadEnvFile(".env.local");
   else if (existsSync(".env")) process.loadEnvFile(".env");
 }
 
@@ -86,6 +100,25 @@ async function loop() {
     provider: provider.name,
     mode: provider.mode
   });
+
+  if (onlyMessageId) {
+    const result = await runEmailWorkerOnce({ prisma, provider, workerId, messageId: onlyMessageId });
+    if (!result) {
+      logError("Message is not queued and due; nothing sent", { workerId, messageId: onlyMessageId });
+      process.exitCode = 1;
+      return;
+    }
+    processed = 1;
+    logInfo("Email delivery job processed", {
+      workerId,
+      messageId: result.messageId,
+      outcome: result.outcome,
+      providerMessageId: result.providerMessageId,
+      failureCode: result.failureCode
+    });
+    if (result.outcome !== "accepted") process.exitCode = 1;
+    return;
+  }
 
   while (!stopping) {
     lastLoopAt = new Date().toISOString();

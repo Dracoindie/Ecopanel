@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { enqueueAssessmentForInterview } from "@/lib/server/assessment/queue";
+import { enqueueHiringNotification } from "@/lib/server/email/notifications";
 import { normalizeCapturedTurns, transcriptChecksum } from "@/lib/server/assessment/transcript";
 import { AssessmentServiceError } from "@/lib/server/assessment/types";
 import { getPrisma } from "@/lib/server/db";
@@ -246,6 +247,13 @@ export async function finishCandidateInterview(
       organizationId: actor.organizationId,
       interviewId: interview.id,
       requestedByUserId: null
+    });
+    await enqueueHiringNotification(tx, {
+      organizationId: actor.organizationId,
+      applicationId: interview.applicationId,
+      interviewId: interview.id,
+      kind: "interview_completed",
+      actorLabel: actor.label
     });
     return {
       transcript: { id: transcript!.id, version: transcript!.version, turnCount: transcript!.turnCount, checksum: transcript!.checksum },

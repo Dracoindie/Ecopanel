@@ -5,7 +5,8 @@ import {
 } from "@/lib/server/assessment/rubric";
 import {
   assessmentOutputJsonSchema,
-  normalizeEvidenceText
+  normalizeEvidenceText,
+  validateAssessmentOutput
 } from "@/lib/server/assessment/validation";
 import type {
   AssessmentGenerationInput,
@@ -204,10 +205,121 @@ function configuredProvider(config: AssessmentConfig, name: "openai", apiKey: st
   };
 }
 
+/** Malformed JSON, Groq's json_validate_failed, or failed evidence checks earn one corrected retry. */
+const GROQ_MAX_CALLS = 2;
+
+type GroqCall =
+  | { kind: "output"; text: string }
+  | { kind: "invalid"; message: string }
+  | { kind: "error"; result: AssessmentProviderResult };
+
+/**
+ * Groq's OpenAI-compatible Chat Completions in JSON mode. Llama models there do
+ * not enforce strict json_schema, so the schema is given in the prompt and the
+ * server-side evidence validation decides whether the output is usable.
+ */
+function groqProvider(config: AssessmentConfig, apiKey: string, model: string): AssessmentProvider {
+  const call = async (messages: Array<{ role: string; content: string }>): Promise<GroqCall> => {
+    let response: Response;
+    try {
+      response = await fetch(`${config.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0.2,
+          max_completion_tokens: config.maxOutputTokens,
+          response_format: { type: "json_object" }
+        }),
+        signal: AbortSignal.timeout(config.timeoutMs)
+      });
+    } catch (error) {
+      return { kind: "error", result: { outcome: "retryable", code: "ASSESSMENT_PROVIDER_UNAVAILABLE", message: `The assessment provider did not respond: ${safeMessage(error)}` } };
+    }
+    const body = await response.json().catch(() => null) as {
+      error?: { message?: unknown; code?: unknown };
+      choices?: Array<{ message?: { content?: unknown }; finish_reason?: unknown }>;
+    } | null;
+    if (!response.ok) {
+      const code = errorCode(body?.error, `ASSESSMENT_PROVIDER_HTTP_${response.status}`);
+      const message = safeMessage(body?.error?.message ?? `Provider returned HTTP ${response.status}.`);
+      if (code === "JSON_VALIDATE_FAILED") return { kind: "invalid", message: "The response was not valid JSON." };
+      if (response.status === 408 || response.status === 429 || response.status >= 500) {
+        return { kind: "error", result: { outcome: "retryable", code, message, retryAfterMs: retryAfterMs(response.headers.get("retry-after")) } };
+      }
+      return { kind: "error", result: { outcome: "permanent", code, message } };
+    }
+    const choice = body?.choices?.[0];
+    if (choice?.finish_reason === "length") {
+      return { kind: "error", result: { outcome: "permanent", code: "ASSESSMENT_PROVIDER_INCOMPLETE", message: "The assessment provider returned an incomplete response." } };
+    }
+    const text = typeof choice?.message?.content === "string" ? choice.message.content.trim() : "";
+    if (!text) return { kind: "error", result: { outcome: "permanent", code: "ASSESSMENT_PROVIDER_EMPTY", message: "The assessment provider returned no output." } };
+    return { kind: "output", text };
+  };
+
+  return {
+    name: "groq",
+    mode: "live",
+    model,
+    async generate(input) {
+      const prompt = transcriptPrompt(input);
+      if (prompt.length > config.maxInputChars) {
+        return { outcome: "permanent", code: "TRANSCRIPT_TOO_LONG", message: "The persisted transcript exceeds the configured assessment input limit." };
+      }
+      const messages = [
+        { role: "system", content: `${buildInstructions()} Respond with one JSON object that conforms to this JSON Schema:\n${JSON.stringify(assessmentOutputJsonSchema())}` },
+        { role: "user", content: prompt }
+      ];
+      let problem = "";
+      for (let attempt = 1; attempt <= GROQ_MAX_CALLS; attempt++) {
+        const result = await call(messages);
+        if (result.kind === "error") return result.result;
+        if (result.kind === "invalid") {
+          problem = result.message;
+        } else {
+          try {
+            const output: unknown = JSON.parse(result.text);
+            validateAssessmentOutput(output, input.turns);
+            return { outcome: "completed", output, provider: "groq", model };
+          } catch (error) {
+            problem = error instanceof SyntaxError ? "The response was not valid JSON." : safeMessage(error);
+            messages.push({ role: "assistant", content: result.text.slice(0, 20_000) });
+          }
+        }
+        messages.push({
+          role: "user",
+          content: `That output was rejected: ${problem} Return the corrected JSON object only. Every quote must be copied exactly from the cited CANDIDATE turn.`
+        });
+      }
+      return { outcome: "permanent", code: "ASSESSMENT_OUTPUT_INVALID", message: `The assessment provider returned invalid output twice: ${problem}`.slice(0, 240) };
+    }
+  };
+}
+
 export function getAssessmentProvider(): AssessmentProvider | null {
   const config = getAssessmentConfig();
   if (!config.configured || !config.apiKey || !config.model) return null;
+  if (config.provider === "groq") return groqProvider(config, config.apiKey, config.model);
   return configuredProvider(config, "openai", config.apiKey, config.model);
+}
+
+export function createGroqAssessmentProviderForTest(input: { apiKey: string; model: string; baseUrl: string }): AssessmentProvider {
+  const config = {
+    ...getAssessmentConfig(),
+    provider: "groq" as const,
+    mode: "live" as const,
+    apiKey: input.apiKey,
+    model: input.model,
+    baseUrl: input.baseUrl,
+    timeoutMs: 10_000,
+    maxInputChars: 120_000,
+    maxOutputTokens: 3_500,
+    configured: true,
+    configurationIssue: null
+  };
+  return groqProvider(config, input.apiKey, input.model);
 }
 
 export function createAssessmentProviderForTest(input: {

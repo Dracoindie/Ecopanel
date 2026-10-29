@@ -3,6 +3,7 @@ import { requireInterviewAccess } from "@/lib/server/interview-access";
 import { z } from "zod";
 import { AnswerAnalysisSchema } from "@/lib/types";
 import { analyzeAnswerLocally, runModeratorStep } from "@/lib/orchestrator";
+import { getEmailConfig } from "@/lib/server/email/config";
 import { logError } from "@/lib/server/logger";
 
 const RequestSchema = z.object({
@@ -34,8 +35,9 @@ export async function POST(request: Request) {
     // If LLM_API_KEY is available, we could enrich analysis, but we strictly validate with AnswerAnalysisSchema
     const validatedAnalysis = AnswerAnalysisSchema.parse(analysis);
 
-    // Run deterministic Moderator step
-    const { updatedState, decision } = runModeratorStep(state, turn, validatedAnalysis);
+    // Invited candidates get a completion email when a provider is configured; say so only then.
+    const confirmationEmail = access.context?.kind === "candidate" && getEmailConfig().configured;
+    const { updatedState, decision } = runModeratorStep(state, turn, validatedAnalysis, { confirmationEmail });
 
     return NextResponse.json({
       analysis: validatedAnalysis,

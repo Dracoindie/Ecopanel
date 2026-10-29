@@ -30,7 +30,6 @@ import { inputClass, labelClass, secondaryButton, selectClass } from "@/lib/ui";
 
 const STAGE_NOTIFICATION: Partial<Record<ApplicationStage, string>> = {
   "In Review": "status update",
-  Shortlisted: "shortlist",
   Selected: "offer",
   Rejected: "rejection"
 };

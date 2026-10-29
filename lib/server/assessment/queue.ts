@@ -230,7 +230,7 @@ async function recoverExpiredLeases(prisma: PrismaClient, now: Date) {
 
 export async function claimNextAssessmentJob(
   prisma: PrismaClient,
-  input: { workerId: string; leaseMs?: number; now?: Date }
+  input: { workerId: string; leaseMs?: number; now?: Date; jobId?: string }
 ) {
   const now = input.now ?? new Date();
   const leaseMs = Math.max(60_000, input.leaseMs ?? getAssessmentConfig().leaseMs);
@@ -242,6 +242,7 @@ export async function claimNextAssessmentJob(
       SELECT "id"
       FROM "AssessmentJob"
       WHERE "status" IN ('Pending', 'Retrying')
+        ${input.jobId ? Prisma.sql`AND "id" = ${input.jobId}` : Prisma.empty}
         AND "availableAt" <= ${now}
         AND ("leaseExpiresAt" IS NULL OR "leaseExpiresAt" <= ${now})
         AND "attempts" < "maxAttempts"

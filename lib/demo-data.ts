@@ -992,6 +992,16 @@ export const seedTemplates: EmailTemplate[] = [
     updatedAt: iso("2026-10-08")
   },
   {
+    id: "tpl-interview-completed",
+    name: "Interview completed",
+    category: "Interview",
+    description: "Confirm that a candidate's interview was received.",
+    subject: "We received your interview: {{job_title}}",
+    body:
+      "Hi {{candidate_first_name}},\n\nThank you for completing your interview for the {{job_title}} role at {{company_name}}. We have received it, and the hiring team will review your answers and be in touch about next steps.\n\nBest,\n{{sender_name}}",
+    updatedAt: iso("2026-10-29")
+  },
+  {
     id: "tpl-offer",
     name: "Selection / offer notification",
     category: "Outcome",

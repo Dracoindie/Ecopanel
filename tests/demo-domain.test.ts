@@ -34,7 +34,7 @@ describe("demo recruitment data", () => {
     expect(seedApplications).toHaveLength(12);
     expect(seedAssessments.length).toBeGreaterThan(0);
     expect(seedInterviews.length).toBeGreaterThan(0);
-    expect(seedTemplates).toHaveLength(9);
+    expect(seedTemplates).toHaveLength(10);
     expect(seedEmails.length).toBeGreaterThan(0);
     expect(seedMailSettings.provider).toBe("Not connected");
     expect(seedMailSettings.deliveryStatus).toBe("Demo mode");

@@ -101,9 +101,7 @@ export function DatabaseScheduleInterviewDialog({
           calendarNotify
         })
       });
-      const emailMessage = notify
-        ? "Invitation and reminder emails were added to the outbox."
-        : "No email was queued.";
+      const emailMessage = "Send the invitation with the one-time link from the interview page.";
       const calendarMessage = calendarNotify
         ? " A Google Calendar invitation was requested."
         : "";
@@ -181,13 +179,9 @@ export function DatabaseScheduleInterviewDialog({
           <span className={labelClass}>Internal notes</span>
           <textarea value={notes} onChange={event => setNotes(event.target.value)} rows={3} className={`${inputClass} resize-y`} placeholder="Optional focus areas for the interview..." />
         </label>
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-mint/15 bg-mint/[0.035] px-3 py-2.5">
-          <input type="checkbox" checked={notify} onChange={event => setNotify(event.target.checked)} className="mt-0.5 h-4 w-4 accent-mint" />
-          <span>
-            <span className="block text-[10px] font-medium text-mint/90">Queue invitation and reminder emails</span>
-            <span className="mt-1 block text-[9px] leading-4 text-mint/65">The invitation and a reminder 24 hours before the interview are stored in the durable outbox. Delivery depends on provider configuration.</span>
-          </span>
-        </label>
+        <p className="rounded-xl border border-mint/15 bg-mint/[0.035] px-3 py-2.5 text-[9px] leading-4 text-mint/65">
+          Scheduling sends no email. Send the candidate&apos;s invitation, with their one-time link, from the interview page.
+        </p>
         <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-violet/15 bg-violet/[0.035] px-3 py-2.5">
           <input type="checkbox" checked={calendarNotify} onChange={event => setCalendarNotify(event.target.checked)} className="mt-0.5 h-4 w-4 accent-mint" />
           <span>

@@ -20,6 +20,8 @@ export interface AssessmentConfig {
   configurationIssue: string | null;
 }
 
+export const GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile";
+
 function clean(value: string | undefined) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
@@ -33,14 +35,19 @@ function boundedNumber(value: string | undefined, fallback: number, min: number,
 
 export function getAssessmentConfig(): AssessmentConfig {
   const providerRaw = clean(process.env.ASSESSMENT_PROVIDER)?.toLowerCase() ?? "disabled";
-  const provider: AssessmentProviderName | null = providerRaw === "openai" ? "openai" : null;
-  const apiKey = provider === "openai" ? clean(process.env.OPENAI_API_KEY) : null;
-  const model = provider === "openai" ? clean(process.env.OPENAI_ASSESSMENT_MODEL) : null;
+  const provider: AssessmentProviderName | null = providerRaw === "openai" || providerRaw === "groq" ? providerRaw : null;
+  // Groq is OpenAI-compatible and free; its model defaults to a Llama model with reliable JSON mode.
+  const apiKey = provider === "openai" ? clean(process.env.OPENAI_API_KEY)
+    : provider === "groq" ? clean(process.env.GROQ_API_KEY) : null;
+  const model = provider === "openai" ? clean(process.env.OPENAI_ASSESSMENT_MODEL)
+    : provider === "groq" ? clean(process.env.GROQ_ASSESSMENT_MODEL) ?? GROQ_DEFAULT_MODEL : null;
   const mode: AssessmentProviderMode = provider ? "live" : "disabled";
 
   let configurationIssue: string | null = null;
-  if (providerRaw !== "disabled" && providerRaw !== "openai") {
-    configurationIssue = "ASSESSMENT_PROVIDER must be openai or disabled.";
+  if (providerRaw !== "disabled" && !provider) {
+    configurationIssue = "ASSESSMENT_PROVIDER must be openai, groq or disabled.";
+  } else if (provider === "groq" && !apiKey) {
+    configurationIssue = "GROQ_API_KEY is not configured.";
   } else if (provider === "openai" && !apiKey) {
     configurationIssue = "OPENAI_API_KEY is not configured.";
   } else if (provider === "openai" && !model) {
@@ -55,7 +62,9 @@ export function getAssessmentConfig(): AssessmentConfig {
     mode,
     apiKey,
     model,
-    baseUrl: clean(process.env.OPENAI_API_BASE_URL) ?? "https://api.openai.com/v1",
+    baseUrl: provider === "groq"
+      ? clean(process.env.GROQ_API_BASE_URL) ?? "https://api.groq.com/openai/v1"
+      : clean(process.env.OPENAI_API_BASE_URL) ?? "https://api.openai.com/v1",
     timeoutMs: boundedNumber(process.env.ASSESSMENT_TIMEOUT_MS, 60_000, 5_000, 300_000),
     maxAttempts: boundedNumber(process.env.ASSESSMENT_MAX_ATTEMPTS, 3, 1, 10),
     leaseMs: boundedNumber(process.env.ASSESSMENT_WORKER_LEASE_MS, 300_000, 60_000, 1_800_000),
@@ -69,7 +78,7 @@ export function getAssessmentConfig(): AssessmentConfig {
 export function getAssessmentProviderStatus(): AssessmentProviderStatus {
   const config = getAssessmentConfig();
   return {
-    provider: config.configured ? "OpenAI" : "Not connected",
+    provider: config.configured ? (config.provider === "groq" ? "Groq" : "OpenAI") : "Not connected",
     providerConfigured: config.configured,
     providerMode: config.mode,
     model: config.configured ? config.model : null,

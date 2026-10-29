@@ -7,7 +7,7 @@ export const ASSESSMENT_DIMENSION_KEYS = [
 ] as const;
 
 export type AssessmentDimensionKey = (typeof ASSESSMENT_DIMENSION_KEYS)[number];
-export type AssessmentProviderName = "openai";
+export type AssessmentProviderName = "openai" | "groq";
 export type AssessmentProviderMode = "disabled" | "live";
 export type AssessmentJobStatus = "Pending" | "Retrying" | "Processing" | "Completed" | "Failed" | "Cancelled";
 

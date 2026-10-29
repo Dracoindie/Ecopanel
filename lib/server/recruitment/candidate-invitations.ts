@@ -45,18 +45,24 @@ export async function inviteCandidateToInterview(context: HrContext, interviewId
     ]);
     const companyName = organization?.name ?? context.organization.name;
     const firstName = candidate.name.split(/\s+/)[0] || candidate.name;
-    const subject = `Your interview link: ${job.title}`.slice(0, 240);
+    // The only invitation a candidate receives: scheduling sends no separate invite.
+    const subject = `Interview invitation: ${job.title}`.slice(0, 240);
     const body = appendSignature(
       [
         `Hi ${firstName},`,
         "",
-        `Here is your personal link to join your ${job.title} interview with ${companyName} on ${formatInterviewDate(interview.scheduledAt, interview.timezone)} at ${formatInterviewTime(interview.scheduledAt, interview.timezone)}:`,
+        `We would like to invite you to interview for the ${job.title} role at ${companyName}.`,
+        "",
+        `Interview date: ${formatInterviewDate(interview.scheduledAt, interview.timezone)}`,
+        `Interview time: ${formatInterviewTime(interview.scheduledAt, interview.timezone)}`,
+        "",
+        "This is an adaptive voice interview. Join with your personal link:",
         "",
         INVITATION_LINK_PLACEHOLDER,
         "",
         "The link works once and expires in 72 hours. Open it on the device you will use for the interview, somewhere quiet, with a working microphone.",
         "",
-        "If the link does not work, reply to this message and we will send a new one.",
+        "If the link does not work or the time does not suit you, reply to this message and we will help.",
         "",
         "Best,",
         settings?.senderName?.trim() || companyName
@@ -91,8 +97,8 @@ export async function inviteCandidateToInterview(context: HrContext, interviewId
         organizationId: context.organization.id,
         applicationId: interview.applicationId,
         type: "email",
-        label: "Interview link queued",
-        detail: "A one-time interview link was issued and queued in the email outbox. Any earlier unused link was revoked.",
+        label: "Interview invitation queued",
+        detail: "The interview invitation with a one-time link was queued in the email outbox. Any earlier unused link was revoked.",
         actorUserId: context.user.id,
         actorLabel: context.user.name
       }

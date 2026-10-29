@@ -52,7 +52,7 @@ function safeFailure(value: string | null | undefined) {
 
 export async function claimNextEmailJob(
   prisma: PrismaClient,
-  input: { workerId: string; leaseMs?: number; now?: Date }
+  input: { workerId: string; leaseMs?: number; now?: Date; messageId?: string }
 ): Promise<ClaimedEmailJob | null> {
   const now = input.now ?? new Date();
   const leaseMs = Math.max(30_000, input.leaseMs ?? getEmailConfig().leaseMs);
@@ -74,6 +74,7 @@ export async function claimNextEmailJob(
       SELECT "id"
       FROM "EmailMessage"
       WHERE "status" = 'Queued'
+        ${input.messageId ? Prisma.sql`AND "id" = ${input.messageId}` : Prisma.empty}
         AND "availableAt" <= ${now}
         AND ("lockedUntil" IS NULL OR "lockedUntil" <= ${now})
       ORDER BY "availableAt" ASC, "createdAt" ASC
@@ -298,12 +299,14 @@ export async function processClaimedEmailJob(
   };
 }
 
-export async function runEmailWorkerOnce(dependencies: EmailWorkerDependencies) {
+/** Processes the next due job, or only the given message when messageId is set. */
+export async function runEmailWorkerOnce(dependencies: EmailWorkerDependencies & { messageId?: string }) {
   const workerId = dependencies.workerId ?? "worker";
   const job = await claimNextEmailJob(dependencies.prisma, {
     workerId,
     leaseMs: dependencies.leaseMs,
-    now: dependencies.now?.()
+    now: dependencies.now?.(),
+    messageId: dependencies.messageId
   });
   if (!job) return null;
   return processClaimedEmailJob(job, { ...dependencies, workerId });

@@ -450,12 +450,13 @@ suite("Phase 2C durable email delivery (TEST_DATABASE_URL)", () => {
       where: { applicationId: application.id, kind: "status-update" }
     })).toBe(0);
 
-    const notified = await hrService.updateApplicationStage(contextA(), application.id, "Shortlisted", { notify: true });
-    expect(notified.notificationQueued).toBe(true);
-    const shortlisted = await prisma.emailMessage.findFirstOrThrow({
-      where: { applicationId: application.id, kind: "shortlisted" }
+    // Shortlisting sends no email; the next candidate email is the interview invitation.
+    await expect(hrService.updateApplicationStage(contextA(), application.id, "Shortlisted", { notify: true })).rejects.toMatchObject({
+      code: "STAGE_NOTIFICATION_UNAVAILABLE"
     });
-    expect(shortlisted.status).toBe("Queued");
+    const shortlisted = await hrService.updateApplicationStage(contextA(), application.id, "Shortlisted", { notify: false });
+    expect(shortlisted.notificationQueued).toBe(false);
+    expect(await prisma.emailMessage.count({ where: { applicationId: application.id, kind: "shortlisted" } })).toBe(0);
     await expect(hrService.updateApplicationStage(contextA(), application.id, "New", { notify: true })).rejects.toMatchObject({
       code: "STAGE_NOTIFICATION_UNAVAILABLE"
     });
@@ -470,10 +471,8 @@ suite("Phase 2C durable email delivery (TEST_DATABASE_URL)", () => {
       notes: "Email integration test.",
       notify: true
     });
-    const interviewMessages = await prisma.emailMessage.findMany({ where: { interviewId: interview.id } });
-    expect(interviewMessages.map(item => item.kind).sort()).toEqual(["interview-invite", "interview-reminder"]);
-    const reminder = interviewMessages.find(item => item.kind === "interview-reminder")!;
-    expect(reminder.availableAt.toISOString()).toBe("2030-01-09T10:00:00.000Z");
+    // Scheduling queues nothing: the single invitation is the one-time-link email.
+    expect(await prisma.emailMessage.count({ where: { interviewId: interview.id } })).toBe(0);
 
     await interviewService.updateHrInterview(contextA(), interview.id, {
       scheduledAt,
@@ -484,7 +483,6 @@ suite("Phase 2C durable email delivery (TEST_DATABASE_URL)", () => {
       notify: true
     });
     const afterReschedule = await prisma.emailMessage.findMany({ where: { interviewId: interview.id } });
-    expect(afterReschedule.filter(item => item.status === "Cancelled").length).toBeGreaterThanOrEqual(2);
     expect(afterReschedule.some(item => item.kind === "interview-reschedule" && item.status === "Queued")).toBe(true);
     expect(afterReschedule.filter(item => item.kind === "interview-reminder" && item.status === "Queued")).toHaveLength(1);
 

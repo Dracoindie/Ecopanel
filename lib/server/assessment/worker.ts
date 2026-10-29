@@ -137,11 +137,12 @@ export async function processClaimedAssessmentJob(
 
 export async function processNextAssessmentJob(
   prisma: PrismaClient,
-  input: { workerId: string; provider?: AssessmentProvider | null; leaseMs?: number }
+  input: { workerId: string; provider?: AssessmentProvider | null; leaseMs?: number; jobId?: string }
 ) {
   const job = await claimNextAssessmentJob(prisma, {
     workerId: input.workerId,
-    leaseMs: input.leaseMs
+    leaseMs: input.leaseMs,
+    jobId: input.jobId
   });
   if (!job) return null;
   return processClaimedAssessmentJob(
