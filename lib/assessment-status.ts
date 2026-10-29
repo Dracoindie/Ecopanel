@@ -19,6 +19,7 @@ export interface AssessmentStatusMessage {
 
 const SAFE_FAILURE_REASONS: Record<string, string> = {
   ASSESSMENT_PROVIDER_UNCONFIGURED: "the assessment provider is not configured",
+  ASSESSMENT_PROVIDER_MISCONFIGURED: "the assessment provider is misconfigured (check the API key and model)",
   ASSESSMENT_PROVIDER_UNAVAILABLE: "the assessment provider was unavailable",
   ASSESSMENT_PROVIDER_EMPTY: "the assessment provider returned no result",
   ASSESSMENT_PROVIDER_INCOMPLETE: "the assessment provider returned an incomplete result",

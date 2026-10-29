@@ -15,6 +15,12 @@ import type {
 } from "@/lib/server/assessment/types";
 import { sanitizeLogString } from "@/lib/server/logger";
 
+/** Bad key, no access, or unknown model: a setup problem HR should see as such, not a transient failure. */
+const MISCONFIGURED = "ASSESSMENT_PROVIDER_MISCONFIGURED";
+function isMisconfigured(status: number) {
+  return status === 401 || status === 403 || status === 404;
+}
+
 function retryAfterMs(value: string | null) {
   if (!value) return undefined;
   const seconds = Number(value);
@@ -169,7 +175,7 @@ function configuredProvider(config: AssessmentConfig, name: "openai", apiKey: st
             retryAfterMs: retryAfterMs(response.headers.get("retry-after"))
           };
         }
-        return { outcome: "permanent", code, message: safeMessage(detail) };
+        return { outcome: "permanent", code: isMisconfigured(response.status) ? MISCONFIGURED : code, message: safeMessage(detail) };
       }
 
       if (body && typeof body === "object" && (body as { status?: unknown }).status === "incomplete") {
@@ -230,7 +236,9 @@ function groqProvider(config: AssessmentConfig, apiKey: string, model: string): 
           messages,
           temperature: 0.2,
           max_completion_tokens: config.maxOutputTokens,
-          response_format: { type: "json_object" }
+          response_format: { type: "json_object" },
+          // gpt-oss reasons before answering; low effort keeps one assessment within free-tier token limits.
+          ...(model.startsWith("openai/gpt-oss") ? { reasoning_effort: "low" } : {})
         }),
         signal: AbortSignal.timeout(config.timeoutMs)
       });
@@ -245,6 +253,7 @@ function groqProvider(config: AssessmentConfig, apiKey: string, model: string): 
       const code = errorCode(body?.error, `ASSESSMENT_PROVIDER_HTTP_${response.status}`);
       const message = safeMessage(body?.error?.message ?? `Provider returned HTTP ${response.status}.`);
       if (code === "JSON_VALIDATE_FAILED") return { kind: "invalid", message: "The response was not valid JSON." };
+      if (isMisconfigured(response.status)) return { kind: "error", result: { outcome: "permanent", code: MISCONFIGURED, message } };
       if (response.status === 408 || response.status === 429 || response.status >= 500) {
         return { kind: "error", result: { outcome: "retryable", code, message, retryAfterMs: retryAfterMs(response.headers.get("retry-after")) } };
       }

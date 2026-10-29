@@ -20,7 +20,7 @@ export interface AssessmentConfig {
   configurationIssue: string | null;
 }
 
-export const GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile";
+export const GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b";
 
 function clean(value: string | undefined) {
   const normalized = value?.trim();
@@ -36,7 +36,7 @@ function boundedNumber(value: string | undefined, fallback: number, min: number,
 export function getAssessmentConfig(): AssessmentConfig {
   const providerRaw = clean(process.env.ASSESSMENT_PROVIDER)?.toLowerCase() ?? "disabled";
   const provider: AssessmentProviderName | null = providerRaw === "openai" || providerRaw === "groq" ? providerRaw : null;
-  // Groq is OpenAI-compatible and free; its model defaults to a Llama model with reliable JSON mode.
+  // Groq is OpenAI-compatible and free; its default model supports JSON mode and strong reasoning.
   const apiKey = provider === "openai" ? clean(process.env.OPENAI_API_KEY)
     : provider === "groq" ? clean(process.env.GROQ_API_KEY) : null;
   const model = provider === "openai" ? clean(process.env.OPENAI_ASSESSMENT_MODEL)

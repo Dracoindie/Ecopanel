@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getAssessmentConfig, getAssessmentProviderStatus, GROQ_DEFAULT_MODEL } from "../lib/server/assessment/config";
 import { createGroqAssessmentProviderForTest, getAssessmentProvider } from "../lib/server/assessment/provider";
+import { safeAssessmentFailureReason } from "../lib/assessment-status";
 import type { AssessmentGenerationInput, StoredTranscriptTurn } from "../lib/server/assessment/types";
 
 // Mocked provider only: no request ever reaches Groq.
@@ -119,6 +120,22 @@ describe("groq assessment provider", () => {
     const result = await provider().generate(input);
     expect(result).toMatchObject({ outcome: "retryable", code: "RATE_LIMIT_EXCEEDED", retryAfterMs: 7_000 });
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports an unknown model as a misconfigured provider, without retrying", async () => {
+    const fetcher = mockFetch(new Response(JSON.stringify({ error: { message: "The model `x` does not exist or you do not have access to it.", code: "model_not_found" } }), { status: 404 }));
+    expect(await provider().generate(input)).toMatchObject({ outcome: "permanent", code: "ASSESSMENT_PROVIDER_MISCONFIGURED" });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(safeAssessmentFailureReason("ASSESSMENT_PROVIDER_MISCONFIGURED")).toMatch(/misconfigured \(check the API key and model\)/);
+  });
+
+  it("asks gpt-oss models for low reasoning effort only", async () => {
+    const fetcher = mockFetch(completion(JSON.stringify(output())), completion(JSON.stringify(output())));
+    await createGroqAssessmentProviderForTest({ apiKey: "k", model: "openai/gpt-oss-120b", baseUrl: "https://groq.test/openai/v1" }).generate(input);
+    await provider().generate(input);
+    const bodies = fetcher.mock.calls.map(call => JSON.parse(String((call as unknown as [string, RequestInit])[1].body)));
+    expect(bodies[0].reasoning_effort).toBe("low");
+    expect(bodies[1].reasoning_effort).toBeUndefined();
   });
 
   it("treats a truncated response as incomplete", async () => {
