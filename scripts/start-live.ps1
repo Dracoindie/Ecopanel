@@ -15,6 +15,9 @@
 .PARAMETER Build
   Rebuild .next-live with the same safe environment before starting.
 
+.PARAMETER BuildOnly
+  With -Build: build .next-live and exit without starting the server.
+
 .PARAMETER Rollback
   Start from the known-good backup .next-live-h9v (git tag known-good-h9v)
   instead of .next-live. Cannot be combined with -Build.
@@ -27,7 +30,7 @@
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-live.ps1 -Build
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-live.ps1 -Rollback
 #>
-param([switch]$Build, [switch]$Rollback, [string]$EnvFile = "")
+param([switch]$Build, [switch]$BuildOnly, [switch]$Rollback, [string]$EnvFile = "")
 
 $ErrorActionPreference = "Stop"
 $Port = 3401
@@ -40,6 +43,7 @@ function Stop-WithError([string]$Message) {
 }
 
 if ($Build -and $Rollback) { Stop-WithError "-Rollback starts the known-good backup; it cannot be combined with -Build." }
+if ($BuildOnly -and -not $Build) { Stop-WithError "-BuildOnly requires -Build." }
 $DistDir = if ($Rollback) { ".next-live-h9v" } else { ".next-live" }
 
 # 1. Load the env file into this process only (values are never echoed).
@@ -86,6 +90,10 @@ if ($Build) {
   New-Item -ItemType Directory -Force -Path (Split-Path $BuildLog) | Out-Null
   $buildExit = Invoke-Native { & npx next build *> $BuildLog }
   if ($buildExit -ne 0) { Stop-WithError "build failed; see scratchpad/build-live.log." }
+}
+if ($BuildOnly) {
+  Write-Host "Built $DistDir (BUILD_ID $(Get-Content (Join-Path $Root "$DistDir\BUILD_ID"))). Server not started (-BuildOnly)."
+  exit 0
 }
 if (-not (Test-Path (Join-Path $Root "$DistDir\BUILD_ID"))) { Stop-WithError "$DistDir has no build. Run with -Build (or without -Rollback)." }
 
