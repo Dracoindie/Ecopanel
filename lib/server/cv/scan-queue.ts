@@ -102,7 +102,7 @@ export async function enqueueMissingScanJobs(prisma: PrismaClient, limit = 200) 
 
 export async function claimNextScanJob(
   prisma: PrismaClient,
-  input: { workerId: string; leaseMs?: number; now?: Date }
+  input: { workerId: string; leaseMs?: number; now?: Date; jobId?: string }
 ): Promise<ClaimedCvScanJob | null> {
   const now = input.now ?? new Date();
   const leaseMs = Math.max(10_000, input.leaseMs ?? defaultScanLeaseMs());
@@ -118,7 +118,7 @@ export async function claimNextScanJob(
     WITH candidate AS (
       SELECT "id"
       FROM "CvScanJob"
-      WHERE (
+      WHERE ${input.jobId ? Prisma.sql`"id" = ${input.jobId} AND` : Prisma.empty} ((
           "status" IN ('PENDING', 'RETRY')
           AND "availableAt" <= ${now}
         )
@@ -126,7 +126,7 @@ export async function claimNextScanJob(
           "status" = 'RUNNING'
           AND "leaseExpiresAt" IS NOT NULL
           AND "leaseExpiresAt" <= ${now}
-        )
+        ))
       ORDER BY "availableAt" ASC, "createdAt" ASC
       FOR UPDATE SKIP LOCKED
       LIMIT 1
@@ -281,12 +281,14 @@ export async function processClaimedScanJob(
   };
 }
 
-export async function runScanWorkerOnce(dependencies: ScanQueueDependencies) {
+/** Processes the next due job, or only the given job when jobId is set. */
+export async function runScanWorkerOnce(dependencies: ScanQueueDependencies & { jobId?: string }) {
   const workerId = dependencies.workerId ?? "worker";
   const job = await claimNextScanJob(dependencies.prisma, {
     workerId,
     leaseMs: dependencies.leaseMs,
-    now: dependencies.now?.()
+    now: dependencies.now?.(),
+    jobId: dependencies.jobId
   });
   if (!job) return null;
   return processClaimedScanJob(job, dependencies);

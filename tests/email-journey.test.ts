@@ -147,3 +147,18 @@ describe("Resend delivery status lookup", () => {
     expect(result).toMatchObject({ ok: false, code: "NOT_FOUND" });
   });
 });
+
+describe("CV worker: one specific scan job", () => {
+  it("claims only the requested job id, keeping the due/expired-lease conditions grouped", async () => {
+    const { claimNextScanJob } = await import("@/lib/server/cv/scan-queue");
+    const queryRaw = vi.fn(async () => []);
+    const prisma = { $queryRaw: queryRaw } as unknown as PrismaClient;
+    await claimNextScanJob(prisma, { workerId: "w", leaseMs: 60_000, jobId: "scan_one" });
+    await claimNextScanJob(prisma, { workerId: "w", leaseMs: 60_000 });
+    const [targeted] = queryRaw.mock.calls[0] as unknown as [{ values: unknown[]; sql: string }];
+    const [any] = queryRaw.mock.calls[1] as unknown as [{ values: unknown[]; sql: string }];
+    expect(targeted.values).toContain("scan_one");
+    expect(targeted.sql).toMatch(/"id" = \? AND \(\(/);
+    expect(any.sql).not.toContain('"id" = ?');
+  });
+});

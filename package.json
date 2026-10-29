@@ -26,7 +26,8 @@
     "build:e2e": "node scripts/build-e2e.mjs",
     "email:send-one": "tsx scripts/email-worker.ts --env-file .env.live.local --message",
     "email:status": "tsx scripts/email-status.ts --env-file .env.live.local --message",
-    "assessment:run-one": "tsx scripts/assessment-worker.ts --env-file .env.live.local --job"
+    "assessment:run-one": "tsx scripts/assessment-worker.ts --env-file .env.live.local --job",
+    "cv:scan-one": "tsx scripts/cv-worker.ts --env-file .env.live.local --job"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

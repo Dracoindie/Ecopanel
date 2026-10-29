@@ -13,8 +13,22 @@ import {
 } from "@/lib/server/cv/scan-queue";
 import { describeError, logError, logInfo, logWarn } from "@/lib/server/logger";
 
+// Options: --env-file <path> loads that file instead of .env.local (e.g. .env.live.local);
+// --job <CvScanJob id> scans only that job once, then exits.
+function argValue(name: string) {
+  const index = process.argv.indexOf(name);
+  const value = index >= 0 ? process.argv[index + 1] : undefined;
+  if (index >= 0 && (!value || value.startsWith("--"))) throw new Error(`${name} needs a value.`);
+  return value;
+}
+const envFile = argValue("--env-file");
+const onlyJobId = argValue("--job");
+
 if (process.env.CV_WORKER_SKIP_ENV_FILE !== "true") {
-  if (existsSync(".env.local")) process.loadEnvFile(".env.local");
+  if (envFile) {
+    if (!existsSync(envFile)) throw new Error(`Env file not found: ${envFile}`);
+    process.loadEnvFile(envFile);
+  } else if (existsSync(".env.local")) process.loadEnvFile(".env.local");
   else if (existsSync(".env")) process.loadEnvFile(".env");
 }
 
@@ -82,6 +96,19 @@ async function loop() {
     if (backfill.enqueued > 0) logInfo("Missing CV scan jobs enqueued at startup", backfill);
   } catch (error) {
     logWarn("Could not backfill missing CV scan jobs at startup", { workerId, error });
+  }
+
+  if (onlyJobId) {
+    const result = await runScanWorkerOnce({ prisma, scanner, storage: getCvStorage(), workerId, leaseMs: defaultScanLeaseMs(), jobId: onlyJobId });
+    if (!result) {
+      logError("CV scan job is not due; nothing scanned", { workerId, jobId: onlyJobId });
+      process.exitCode = 1;
+      return;
+    }
+    processed = 1;
+    logInfo("CV scan job processed", { workerId, jobId: result.jobId, cvFileId: result.cvFileId, outcome: result.outcome, scanStatus: result.scanStatus, error: result.error });
+    if (result.outcome === "failed" || result.outcome === "collision") process.exitCode = 1;
+    return;
   }
 
   while (!stopping) {
