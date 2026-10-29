@@ -239,7 +239,7 @@ export function DatabaseComposeClient() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
         <section className="space-y-4">
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <div className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex items-center justify-between gap-3">
               <div><h2 className="text-sm font-semibold text-white">Recipients</h2><p className="mt-1 text-[10px] text-slate-500">Choose applications from this organization.</p></div>
               <Badge tone={selected.length ? "mint" : "slate"}>{selected.length} selected</Badge>
@@ -275,7 +275,7 @@ export function DatabaseComposeClient() {
             {errors.recipients && <p className="mt-2 text-[10px] text-rose-200">{errors.recipients}</p>}
           </div>
 
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <div className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div><h2 className="text-sm font-semibold text-white">Message</h2><p className="mt-1 text-[10px] text-slate-500">Use a template or write a message. Placeholders resolve in the preview.</p></div>
               <select value={templateId} onChange={event => applyTemplate(event.target.value)} className={`${selectClass} h-9 w-48 py-0 text-[10px]`} aria-label="Choose template">
@@ -311,7 +311,7 @@ export function DatabaseComposeClient() {
         </section>
 
         <aside className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex items-center justify-between gap-2"><h2 className="text-sm font-semibold text-white">Preview</h2><Badge tone={selected.length ? "mint" : "slate"}><Users size={9} /> {selected.length || "No"} recipient{selected.length === 1 ? "" : "s"}</Badge></div>
             <div className="mt-4 rounded-xl border border-white/[0.06] bg-black/10 p-4">
               <p className="text-[8px] uppercase tracking-[0.1em] text-slate-700">To</p>
@@ -328,7 +328,7 @@ export function DatabaseComposeClient() {
             </div>
           </section>
 
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/60 p-4">
+          <div className="rounded-2xl border border-white/[0.07] bg-card/60 p-4">
             <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-300"><Sparkles size={12} className="text-violet-200" /> Personalisation</div>
             <p className="mt-2 text-[9px] leading-5 text-slate-600">Preview uses the first selected real application. Each queued message is rendered separately for its recipient before being stored.</p>
           </div>

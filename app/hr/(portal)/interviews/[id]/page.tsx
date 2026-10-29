@@ -48,7 +48,7 @@ function DemoInterviewDetailPage() {
     <div className="space-y-5">
       <Link href="/hr/schedule" className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-500 transition hover:text-white"><ArrowLeft size={12} /> Schedule & calendar</Link>
 
-      <section className="rounded-2xl border border-white/[0.08] bg-[#0a111e]/90 p-5 sm:p-6">
+      <section className="rounded-2xl border border-white/[0.08] bg-card/90 p-5 sm:p-6">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -78,7 +78,7 @@ function DemoInterviewDetailPage() {
 
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <h2 className="text-sm font-semibold text-white">Session details</h2>
             <dl className="mt-4 grid gap-4 text-[10px] sm:grid-cols-2">
               <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3.5"><dt className="text-slate-600">Date</dt><dd className="mt-1 text-xs font-medium text-slate-200">{formatDate(interview.scheduledAt)}</dd></div>
@@ -92,13 +92,13 @@ function DemoInterviewDetailPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <h2 className="text-sm font-semibold text-white">Evaluation</h2>
             {assessment ? (
               <div className="mt-4">
                 <div className="flex flex-wrap items-center gap-2"><Badge tone="violet">Demo assessment</Badge><Badge tone="mint">{assessment.recommendation}</Badge><span className="text-xs font-semibold text-white">{assessment.overallScore.toFixed(1)} / 10</span></div>
                 <p className="mt-3 text-xs leading-6 text-slate-400">{assessment.summary}</p>
-                <Link href={`/hr/interviews/${interview.id}/report`} className="mt-4 inline-flex items-center gap-1.5 text-[10px] font-medium text-mint hover:text-white">Read evidence-linked report <ArrowRight size={11} /></Link>
+                <Link href={`/hr/interviews/${interview.id}/report`} className="mt-4 inline-flex items-center gap-1.5 text-[10px] font-medium text-mint hover:text-white">Read evidence-linked report</Link>
               </div>
             ) : (
               <div className="mt-4 rounded-xl border border-dashed border-white/[0.09] bg-black/10 p-5 text-center">
@@ -110,7 +110,7 @@ function DemoInterviewDetailPage() {
         </div>
 
         <aside className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">Candidate</p>
             <div className="mt-3 flex items-center gap-3">
               <Avatar name={candidate?.name ?? "Candidate"} tone="violet" />
@@ -122,7 +122,7 @@ function DemoInterviewDetailPage() {
             {application && <div className="mt-3"><StageBadge stage={application.stage} /></div>}
             <Link href={`/hr/applicants/${interview.applicationId}`} className="mt-4 flex items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2.5 text-[10px] text-slate-400 hover:text-white"><span className="inline-flex items-center gap-2"><UserRound size={11} /> Candidate dossier</span><ArrowRight size={10} /></Link>
           </section>
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">Role</p>
             <p className="mt-2 text-xs font-semibold text-white">{job?.title}</p>
             <p className="mt-1 text-[10px] text-slate-500">{job?.department} · {job?.location}</p>
@@ -131,7 +131,7 @@ function DemoInterviewDetailPage() {
           <div className="rounded-2xl border border-amber-300/10 bg-amber-300/[0.025] p-4">
             <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-amber-200/60">Demo limitation</p>
             <p className="mt-2 text-[9px] leading-5 text-slate-500">Rescheduling and cancellation do not notify the candidate or update a real calendar. Use the mail composer to preview what a future notification could include.</p>
-            {candidate && <Link href={`/hr/email/compose?candidate=${candidate.id}&application=${interview.applicationId}&template=tpl-interview-reschedule`} className="mt-3 inline-flex items-center gap-1.5 text-[9px] font-medium text-amber-200/80 hover:text-white">Compose reschedule email <ArrowRight size={10} /></Link>}
+            {candidate && <Link href={`/hr/email/compose?candidate=${candidate.id}&application=${interview.applicationId}&template=tpl-interview-reschedule`} className="mt-3 inline-flex items-center gap-1.5 text-[9px] font-medium text-amber-200/80 hover:text-white">Compose reschedule email</Link>}
           </div>
         </aside>
       </div>

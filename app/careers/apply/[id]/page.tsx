@@ -122,8 +122,8 @@ export default function ApplyPage() {
       <main className="mx-auto flex min-h-[58vh] w-full max-w-[900px] flex-col items-center justify-center px-6 py-20 text-center">
         <h1 className="font-display text-3xl text-white">This role is temporarily unavailable.</h1>
         <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">{jobLoadError}</p>
-        <Link href="/careers" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-[#090b10]">
-          Browse open roles <ArrowRight size={13} />
+        <Link href="/careers" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-ink">
+          Browse open roles
         </Link>
       </main>
     );
@@ -137,8 +137,8 @@ export default function ApplyPage() {
         </span>
         <h1 className="font-display mt-5 text-3xl text-white">Applications for this role are closed.</h1>
         <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">This role is not accepting public applications. You can browse other open positions and apply there.</p>
-        <Link href="/careers" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-[#090b10]">
-          Browse open roles <ArrowRight size={13} />
+        <Link href="/careers" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-ink">
+          Browse open roles
         </Link>
       </main>
     );
@@ -276,7 +276,7 @@ export default function ApplyPage() {
 
   return (
     <main>
-      <div className="border-b border-white/[0.055] bg-[#070a10]">
+      <div className="border-b border-white/[0.055] bg-ink">
         <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-10">
           <Link href={`/careers/jobs/${job.id}`} className="inline-flex items-center gap-2 text-xs font-medium text-slate-500 transition hover:text-white">
             <ArrowLeft size={13} /> Back to role
@@ -406,7 +406,7 @@ export default function ApplyPage() {
             </label>
 
             <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
-              <input type="checkbox" checked={form.consent} onChange={event => setField("consent", event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#7cf5c5]" />
+              <input type="checkbox" checked={form.consent} onChange={event => setField("consent", event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-mint" />
               <span className="text-[11px] leading-5 text-slate-400">
                 {isDatabase
                   ? "I consent to this hiring team storing my application details and CV for recruitment review. I understand that email delivery and interview scheduling are not yet connected. *"
@@ -418,8 +418,8 @@ export default function ApplyPage() {
 
             <div className="flex flex-col-reverse gap-3 border-t border-white/[0.07] pt-6 sm:flex-row sm:items-center sm:justify-between">
               <Link href={`/careers/jobs/${job.id}`} className="inline-flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-white"><ArrowLeft size={12} /> Cancel</Link>
-              <button type="submit" disabled={submitting} className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#090b10] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60">
-                {submitting ? <><Loader2 size={14} className="animate-spin" /> {isDatabase ? "Submitting securely…" : "Submitting demo…"}</> : <>Submit application <ArrowRight size={14} /></>}
+              <button type="submit" disabled={submitting} className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-ink transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60">
+                {submitting ? <><Loader2 size={14} className="animate-spin" /> {isDatabase ? "Submitting securely…" : "Submitting demo…"}</> : <>Submit application</>}
               </button>
             </div>
           </form>

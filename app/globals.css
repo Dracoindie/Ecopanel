@@ -2,44 +2,160 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: dark; }
+/*
+ * EchoPanel palette. Tailwind colours resolve to these variables (tailwind.config.ts).
+ * Default = dark "stage" (landing, careers, interview). .theme-light = porcelain HR portal:
+ * the same utility classes keep their meaning (text-white = primary text, slate-500 = secondary,
+ * bg-mint = primary action) with values mirrored for a light surface. All text pairs meet WCAG AA.
+ * Interviewer colours (technical, product, behavioural) only ever identify an interviewer.
+ */
+:root, .theme-dark {
+  color-scheme: dark;
+  --c-white: 238 241 246;      /* #EEF1F6 text on dark */
+  --c-black: 6 11 22;
+  --c-ink: 16 26 46;           /* #101A2E */
+  --c-card: 26 39 66;          /* #1A2742 */
+  --c-field: 13 21 38;
+  --c-mint: 238 241 246;       /* primary action: porcelain on the dark stage */
+  --c-mint-hover: 255 255 255;
+  --c-violet: 156 168 214;
+  --c-violet-200: 196 204 234;
+  --c-violet-300: 170 180 222;
+  --c-slate-100: 228 232 240;
+  --c-slate-200: 213 219 230;
+  --c-slate-300: 188 197 212;
+  --c-slate-400: 163 174 193;
+  --c-slate-500: 143 155 176;
+  --c-slate-600: 134 147 168;
+  --c-slate-700: 74 86 114;
+  --c-amber-100: 252 238 190;
+  --c-amber-200: 247 222 138;
+  --c-amber-300: 240 205 100;
+  --c-amber-400: 230 190 70;
+  --c-rose-100: 255 222 222;
+  --c-rose-200: 255 201 201;
+  --c-rose-300: 255 158 158;
+  --c-rose-400: 244 112 112;
+  --c-red-200: 255 201 201;
+  --c-red-300: 255 158 158;
+  --c-red-400: 244 112 112;
+  --c-sky-100: 221 230 250;
+  --c-sky-200: 195 209 242;
+  --c-sky-400: 128 155 224;
+  --c-emerald-300: 126 221 181;
+  --c-emerald-400: 84 200 154;
+  --c-purple-200: 214 200 247;
+  --c-purple-400: 168 140 240;
+  --surface: #101A2E;
+}
+.theme-dark { color: rgb(var(--c-white)); }
+
+.theme-light {
+  color-scheme: light;
+  --c-white: 16 26 46;         /* primary text: ink */
+  --c-black: 150 165 192;      /* insets and overlays: a soft slate tint, not grey slabs */
+  --c-ink: 255 255 255;        /* text on primary buttons, raised surfaces */
+  --c-card: 255 255 255;
+  --c-field: 255 255 255;
+  --c-mint: 16 26 46;          /* primary action: ink on porcelain */
+  --c-mint-hover: 36 52 84;
+  --c-violet: 61 74 120;
+  --c-violet-200: 61 74 120;
+  --c-violet-300: 74 88 136;
+  --c-slate-100: 22 33 58;
+  --c-slate-200: 30 42 66;
+  --c-slate-300: 44 57 82;
+  --c-slate-400: 70 82 107;
+  --c-slate-500: 82 94 118;
+  --c-slate-600: 90 102 125;
+  --c-slate-700: 136 146 166;
+  --c-amber-100: 106 64 0;
+  --c-amber-200: 122 74 0;
+  --c-amber-300: 138 84 0;
+  --c-amber-400: 168 104 0;
+  --c-rose-100: 140 24 20;
+  --c-rose-200: 163 32 28;
+  --c-rose-300: 176 38 31;
+  --c-rose-400: 196 48 42;
+  --c-red-200: 163 32 28;
+  --c-red-300: 176 38 31;
+  --c-red-400: 196 48 42;
+  --c-sky-100: 22 48 112;
+  --c-sky-200: 31 60 136;
+  --c-sky-400: 53 87 183;
+  --c-emerald-300: 6 105 74;
+  --c-emerald-400: 4 120 87;
+  --c-purple-200: 91 44 168;
+  --c-purple-400: 124 58 237;
+  --surface: #F3F5F9;
+  background: #F3F5F9;
+  color: rgb(var(--c-slate-200));
+}
+
 * { box-sizing: border-box; }
-html { width: 100%; min-height: 100%; background: #060a12; font-size: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-body { width: 100%; margin: 0; min-height: 100vh; background: #080d18; color: #edf4ff; font-family: "Segoe UI Variable", "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-body:before { content:""; position:fixed; inset:0; pointer-events:none; background:radial-gradient(circle at 12% 12%, rgba(108,96,255,.18), transparent 30%),radial-gradient(circle at 86% 25%, rgba(80,219,178,.11), transparent 25%); }
-::selection { background: rgba(124,245,197,.22); color: #f7fffc; }
-.glass { border: 1px solid rgba(180,205,255,.12); background: rgba(17,26,45,.72); backdrop-filter: blur(18px); }
-.gridline { background-image: linear-gradient(rgba(140,170,255,.045) 1px, transparent 1px), linear-gradient(90deg,rgba(140,170,255,.045) 1px, transparent 1px); background-size: 44px 44px; }
+html { width: 100%; min-height: 100%; background: #101A2E; font-size: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  width: 100%; margin: 0; min-height: 100vh;
+  background: #101A2E; color: rgb(var(--c-white));
+  font-family: var(--font-body), system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+h1, h2, .font-display {
+  font-family: var(--font-display), var(--font-body), system-ui, sans-serif;
+  font-optical-sizing: auto;
+}
+h1 { font-variation-settings: "wdth" 88; letter-spacing: -0.02em; }
+::selection { background: rgb(34 184 207 / .28); color: inherit; }
+
+/* Quiet, disciplined defaults: sentence case instead of all-caps eyebrows, readable small text. */
+.uppercase { text-transform: none; }
+.uppercase[class*="tracking-"] { letter-spacing: 0; }
+.text-\[8px\] { font-size: 10.5px; line-height: 1.4; }
+.text-\[9px\] { font-size: 11px; line-height: 1.45; }
+.text-\[10px\] { font-size: 11.5px; }
+.text-\[11px\] { font-size: 12.5px; }
+
+/* Surfaces. Flat, with a hairline; depth comes from tone, not identical glow shadows. */
+.glass { border: 1px solid rgb(var(--c-white) / .1); background: rgb(var(--c-card) / .9); }
+.gridline { background-image: none; }
+.surface { border: 1px solid rgb(var(--c-white) / .08); background: rgb(var(--c-card) / .72); }
+.theme-light .surface, .theme-light .glass { background: #fff; border-color: rgb(16 26 46 / .09); }
+.stage-glow, .careers-glow, .page-noise { background: none; }
+.dot-grid { background-image: radial-gradient(rgb(var(--c-white) / .07) .6px, transparent .6px); background-size: 18px 18px; }
+
 .pulse { animation: pulse 1.6s ease-in-out infinite; } @keyframes pulse { 50% { opacity:.45; transform:scale(.96) } }
-.slide { animation: slide .45s ease both; } @keyframes slide { from { opacity:0; transform: translateY(8px) } }
-.surface { border: 1px solid rgba(180,205,255,.09); background: linear-gradient(180deg, rgba(17,26,45,.82), rgba(8,13,24,.78)); box-shadow: 0 24px 80px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.03); backdrop-filter: blur(20px); }
-.stage-glow { background: radial-gradient(ellipse at 50% 0%, rgba(124,245,197,.065), transparent 62%), radial-gradient(ellipse at 82% 10%, rgba(156,140,255,.05), transparent 48%); }
-.page-noise { background-image: radial-gradient(rgba(168,190,230,.2) .55px, transparent .55px); background-size: 5px 5px; mix-blend-mode: soft-light; }
+.slide { animation: slide .35s ease both; } @keyframes slide { from { opacity:0; transform: translateY(6px) } }
 .status-pulse { animation: status-pulse 1.7s ease-in-out infinite; } @keyframes status-pulse { 50% { opacity:.4; } }
 .orb-breathe { animation: orb-breathe 5.5s ease-in-out infinite; } @keyframes orb-breathe { 50% { opacity:.55; transform: translate(-50%, -50%) scale(1.025); } }
 .signal-bar { animation: signal-bar .9s ease-in-out infinite alternate; transform-origin: center; } @keyframes signal-bar { from { transform: scaleY(.55); opacity:.65; } to { transform: scaleY(1); opacity:1; } }
-.scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.22) transparent; }
+.fade-up { animation: fade-up .4s cubic-bezier(.22,.8,.32,1) both; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } }
+
+/* Landing page load sequence (motion only on load; disabled for reduced motion). */
+.rise { animation: rise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d, 0ms); }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+
+.scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgb(var(--c-slate-500) / .35) transparent; }
 .scrollbar-thin::-webkit-scrollbar { width: 5px; height: 5px; }
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(148,163,184,.2); border-radius: 999px; }
-.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,.34); }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
-}
-
-/* Shared product UI */
-.font-display { font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, Cambria, serif; }
-.dot-grid { background-image: radial-gradient(rgba(148,163,184,.14) .6px, transparent .6px); background-size: 18px 18px; }
-.careers-glow { background: radial-gradient(circle at 72% 28%, rgba(156,140,255,.16), transparent 28%), radial-gradient(circle at 60% 62%, rgba(124,245,197,.08), transparent 24%), radial-gradient(circle at 50% 100%, rgba(245,184,91,.06), transparent 30%); }
-.fade-up { animation: fade-up .5s cubic-bezier(.22,.8,.32,1) both; }
-@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } }
-.hr-table tbody tr { transition: background-color .15s ease; }
-.hr-table tbody tr:hover { background: rgba(255,255,255,.018); }
-.hr-table td, .hr-table th { white-space: nowrap; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgb(var(--c-slate-500) / .3); border-radius: 999px; }
 .scrollbar-none { scrollbar-width: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
-:focus-visible { outline: 2px solid rgba(124,245,197,.6); outline-offset: 2px; }
+
+.hr-table tbody tr { transition: background-color .15s ease; }
+.hr-table tbody tr:hover { background: rgb(var(--c-white) / .025); }
+.hr-table td, .hr-table th { white-space: nowrap; }
+
+/* Visible keyboard focus on both themes. */
+:focus-visible { outline: 2px solid #22B8CF; outline-offset: 2px; border-radius: 6px; }
+.theme-light :focus-visible { outline-color: #0E7C8C; }
 input[type="date"], input[type="time"] { color-scheme: dark; }
+.theme-light input[type="date"], .theme-light input[type="time"] { color-scheme: light; }
+
 @media (max-width: 639px) {
   .hide-mobile { display: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

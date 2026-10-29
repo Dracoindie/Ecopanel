@@ -160,7 +160,7 @@ export function ComposeClient() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
         <section className="space-y-4">
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <div className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex items-center justify-between gap-3">
               <div><h2 className="text-sm font-semibold text-white">Recipients</h2><p className="mt-1 text-[10px] text-slate-500">Choose one candidate or build a small demo bulk send.</p></div>
               <Badge tone={selectedIds.length ? "mint" : "slate"}>{selectedIds.length} selected</Badge>
@@ -197,7 +197,7 @@ export function ComposeClient() {
             {errors.recipients && <p className="mt-2 text-[10px] text-rose-200">{errors.recipients}</p>}
           </div>
 
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <div className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
               <label className="block">
                 <span className={labelClass}>Template</span>
@@ -228,7 +228,7 @@ export function ComposeClient() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <div className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex items-center justify-between gap-3">
               <div><h2 className="text-sm font-semibold text-white">Attachments</h2><p className="mt-1 text-[10px] text-slate-500">Metadata only · no file is uploaded or sent.</p></div>
               <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/[0.08] px-2.5 py-1.5 text-[9px] text-slate-400 transition hover:text-white">
@@ -259,7 +259,7 @@ export function ComposeClient() {
         </section>
 
         <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-          <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a111e]/90">
+          <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-card/90">
             <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-4 py-3">
               <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-300"><Mail size={12} className="text-violet-200" /> Live preview</div>
               <Badge tone="amber">Demo</Badge>
@@ -280,7 +280,7 @@ export function ComposeClient() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/60 p-4">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/60 p-4">
             <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">Send checklist</p>
             <div className="mt-3 space-y-2 text-[9px]">
               <div className="flex items-center gap-2 text-slate-500"><span className={cn("grid h-4 w-4 place-items-center rounded-full border", selectedIds.length ? "border-mint/30 bg-mint/[0.08] text-mint" : "border-white/[0.1]")}><Check size={8} /></span> Recipients selected</div>

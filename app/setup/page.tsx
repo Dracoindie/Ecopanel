@@ -280,10 +280,9 @@ export default function Setup() {
               <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-mint px-5 py-3 text-xs font-semibold text-ink shadow-[0_0_30px_rgba(124,245,197,.12)] transition hover:bg-[#9bf8d5]"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-mint px-5 py-3 text-xs font-semibold text-ink shadow-[0_0_30px_rgba(124,245,197,.12)] transition hover:bg-mint-hover"
                 >
                   I understand &amp; enter live room
-                  <ArrowRight size={14} />
                 </button>
                 <button
                   type="button"
@@ -313,7 +312,7 @@ export default function Setup() {
               </div>
 
               <div className="mt-5 flex flex-col items-center border-b border-white/[0.055] pb-5 text-center">
-                <div className="relative grid h-20 w-20 place-items-center rounded-full border border-mint/20 bg-gradient-to-br from-mint/[0.12] via-[#14243a] to-violet/[0.12] text-xl font-semibold tracking-[0.04em] text-white">
+                <div className="relative grid h-20 w-20 place-items-center rounded-full border border-mint/20 bg-gradient-to-br from-mint/[0.12] via-card to-violet/[0.12] text-xl font-semibold tracking-[0.04em] text-white">
                   <span className="absolute inset-[5px] rounded-full border border-white/[0.05]" />
                   {previewInitials}
                 </div>

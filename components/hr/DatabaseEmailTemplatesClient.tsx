@@ -87,7 +87,7 @@ export function DatabaseEmailTemplatesClient() {
         Templates are stored per organization. Placeholders are rendered in the composer; no message is sent automatically.
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-[#0a111e]/60 p-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-card/60 p-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap gap-1">
           {categories.map(item => (
             <button key={item} onClick={() => setCategory(item)} className={cn("rounded-lg px-2.5 py-1.5 text-[9px] font-medium transition", category === item ? "bg-white/[0.08] text-white" : "text-slate-500 hover:bg-white/[0.03] hover:text-slate-300")}>
@@ -109,11 +109,11 @@ export function DatabaseEmailTemplatesClient() {
       ) : error ? (
         <EmptyState title="Templates unavailable" description={error} icon={Mail} />
       ) : !filtered.length ? (
-        <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/60"><EmptyState title="No templates match" description="Try another category or create a new template." icon={Mail} action={<button onClick={() => { setQ(""); setCategory("All"); }} className={secondaryButton}>Clear filters</button>} /></div>
+        <div className="rounded-2xl border border-white/[0.07] bg-card/60"><EmptyState title="No templates match" description="Try another category or create a new template." icon={Mail} action={<button onClick={() => { setQ(""); setCategory("All"); }} className={secondaryButton}>Clear filters</button>} /></div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map(template => (
-            <Link key={template.id} href={`/hr/email/templates/${template.id}`} className="group flex flex-col rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5 transition hover:border-white/[0.13] hover:bg-[#0c1422]">
+            <Link key={template.id} href={`/hr/email/templates/${template.id}`} className="group flex flex-col rounded-2xl border border-white/[0.07] bg-card/80 p-5 transition hover:border-white/[0.13] hover:bg-card">
               <div className="flex items-start justify-between gap-3">
                 <span className="grid h-9 w-9 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.025] text-slate-500 transition group-hover:text-violet-200"><FilePenLine size={15} /></span>
                 <Badge tone={categoryTone[template.category]}>{template.category}</Badge>

@@ -179,10 +179,10 @@ function DatabaseEmailLog({ activity }: { activity: boolean }) {
         <button onClick={() => setStatus("Failed")} className="text-left"><StatCard label="Attention" value={stats.attention} detail="Failed or bounced" icon={TriangleAlert} tone="rose" /></button>
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+      <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-card/80">
         <div className="flex flex-col justify-between gap-3 border-b border-white/[0.06] px-4 py-4 sm:flex-row sm:items-center">
           <SectionHeading title="Communication log" description={`${emails.length} record${emails.length === 1 ? "" : "s"} match the current view.`} />
-          {!activity && <Link href="/hr/email/activity" className="inline-flex items-center gap-1.5 text-[10px] font-medium text-mint hover:text-white">Open full activity <ArrowRight size={11} /></Link>}
+          {!activity && <Link href="/hr/email/activity" className="inline-flex items-center gap-1.5 text-[10px] font-medium text-mint hover:text-white">Open full activity</Link>}
         </div>
 
         <div className="grid gap-2 border-b border-white/[0.06] p-4 md:grid-cols-2 xl:grid-cols-[1fr_170px_190px_auto]">

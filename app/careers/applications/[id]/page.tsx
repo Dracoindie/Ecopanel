@@ -99,7 +99,7 @@ export default function ApplicationConfirmationPage() {
           <span className="grid h-12 w-12 place-items-center rounded-2xl border border-white/[0.1] bg-white/[0.03] text-slate-500"><FileText size={18} /></span>
           <h1 className="font-display mt-5 text-3xl text-white">Application not found.</h1>
           <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">{loadError || "Check the confirmation link or contact the hiring team."}</p>
-          <Link href="/careers" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-[#090b10]">Browse open roles <ArrowRight size={13} /></Link>
+          <Link href="/careers" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-ink">Browse open roles</Link>
         </main>
       );
     }
@@ -116,7 +116,7 @@ export default function ApplicationConfirmationPage() {
             </p>
           </div>
           <div className="mt-9 grid gap-4 md:grid-cols-2">
-            <section className="rounded-2xl border border-white/[0.08] bg-[#0a0e15]/80 p-5">
+            <section className="rounded-2xl border border-white/[0.08] bg-card/80 p-5">
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Application</p>
               <dl className="mt-4 space-y-3 text-xs">
                 <div className="flex justify-between gap-4"><dt className="text-slate-500">Reference</dt><dd className="max-w-[190px] break-all font-mono text-right text-slate-200">{summary.publicReference}</dd></div>
@@ -125,7 +125,7 @@ export default function ApplicationConfirmationPage() {
                 <div className="flex justify-between gap-4"><dt className="text-slate-500">Stage</dt><dd className="text-right"><span className="rounded-full border border-amber-300/20 bg-amber-300/[0.06] px-2 py-0.5 text-[9px] font-semibold text-amber-200">New</span></dd></div>
               </dl>
             </section>
-            <section className="rounded-2xl border border-white/[0.08] bg-[#0a0e15]/80 p-5">
+            <section className="rounded-2xl border border-white/[0.08] bg-card/80 p-5">
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">CV storage</p>
               <div className="mt-4 flex items-center gap-3">
                 <span className="grid h-9 w-9 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-slate-400"><FileText size={15} /></span>
@@ -135,7 +135,7 @@ export default function ApplicationConfirmationPage() {
             </section>
           </div>
           <div className="mt-7 flex flex-col justify-center gap-2 sm:flex-row">
-            <Link href="/careers#open-roles" className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-[#090b10]">Explore more roles <ArrowRight size={13} /></Link>
+            <Link href="/careers#open-roles" className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-ink">Explore more roles</Link>
             <Link href="/hr/login" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/[0.12] px-5 py-2.5 text-xs font-medium text-slate-300 transition hover:text-white">Hiring team sign in</Link>
           </div>
         </div>
@@ -154,8 +154,8 @@ export default function ApplicationConfirmationPage() {
           The frontend demo keeps new applications in the current browser session only. If you refreshed the page, the temporary record has reset. No personal data was stored.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <Link href="/careers" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-[#090b10]">
-            Browse open roles <ArrowRight size={13} />
+          <Link href="/careers" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-ink">
+            Browse open roles
           </Link>
           <Link href="/hr/applicants" className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] px-5 py-2.5 text-xs font-medium text-slate-300">
             Open recruiter demo
@@ -181,7 +181,7 @@ export default function ApplicationConfirmationPage() {
         </div>
 
         <div className="mt-9 grid gap-4 md:grid-cols-2">
-          <section className="rounded-2xl border border-white/[0.08] bg-[#0a0e15]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.08] bg-card/80 p-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Application</p>
             <dl className="mt-4 space-y-3 text-xs">
               <div className="flex justify-between gap-4"><dt className="text-slate-500">Reference</dt><dd className="font-mono text-slate-200">{application.id}</dd></div>
@@ -191,7 +191,7 @@ export default function ApplicationConfirmationPage() {
               <div className="flex justify-between gap-4"><dt className="text-slate-500">Current stage</dt><dd className="text-right"><span className="rounded-full border border-amber-300/20 bg-amber-300/[0.06] px-2 py-0.5 text-[9px] font-semibold text-amber-200">New</span></dd></div>
             </dl>
           </section>
-          <section className="rounded-2xl border border-white/[0.08] bg-[#0a0e15]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.08] bg-card/80 p-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Candidate</p>
             <dl className="mt-4 space-y-3 text-xs">
               <div className="flex justify-between gap-4"><dt className="text-slate-500">Name</dt><dd className="text-right font-medium text-slate-200">{candidate.name}</dd></div>
@@ -202,7 +202,7 @@ export default function ApplicationConfirmationPage() {
           </section>
         </div>
 
-        <section className="mt-4 rounded-2xl border border-white/[0.08] bg-[#0a0e15]/80 p-5">
+        <section className="mt-4 rounded-2xl border border-white/[0.08] bg-card/80 p-5">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">CV metadata</p>
@@ -220,7 +220,7 @@ export default function ApplicationConfirmationPage() {
           </div>
         </section>
 
-        <section className="mt-4 rounded-2xl border border-white/[0.08] bg-[#0a0e15]/80 p-5">
+        <section className="mt-4 rounded-2xl border border-white/[0.08] bg-card/80 p-5">
           <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">What happens next</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             {[
@@ -241,8 +241,8 @@ export default function ApplicationConfirmationPage() {
         </section>
 
         <div className="mt-7 flex flex-col justify-center gap-2 sm:flex-row">
-          <Link href="/careers#open-roles" className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-[#090b10]">
-            Explore more roles <ArrowRight size={13} />
+          <Link href="/careers#open-roles" className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-ink">
+            Explore more roles
           </Link>
           <Link href="/hr/applicants" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/[0.12] px-5 py-2.5 text-xs font-medium text-slate-300 transition hover:text-white">
             View in recruiter demo

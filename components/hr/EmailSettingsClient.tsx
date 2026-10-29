@@ -76,7 +76,7 @@ export function EmailSettingsClient() {
       <DemoBanner compact>No mail provider is connected. These settings only affect preview and simulated activity labels. Do not enter real credentials or sensitive secrets.</DemoBanner>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5 sm:p-6">
+        <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-4">
             <div><h2 className="text-sm font-semibold text-white">Sender identity</h2><p className="mt-1 text-[10px] text-slate-500">Used for previews and future provider configuration.</p></div>
             {saved ? <Badge tone="mint" dot>Saved this session</Badge> : <Badge tone="slate">Demo values</Badge>}
@@ -123,7 +123,7 @@ export function EmailSettingsClient() {
             <p className="mt-3 border-t border-amber-300/10 pt-3 text-[8px] leading-4 text-slate-600">Provider setup, secrets management, consent, and delivery tracking belong to Phase 2.</p>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/60 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/60 p-5">
             <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-300"><ShieldCheck size={13} className="text-mint" /> Safety boundaries</div>
             <div className="mt-3 space-y-2.5 text-[9px] leading-4 text-slate-500">
               <p className="flex gap-2"><CheckCircle2 size={11} className="mt-0.5 shrink-0 text-mint/60" /> Use fictional candidate and company data only.</p>

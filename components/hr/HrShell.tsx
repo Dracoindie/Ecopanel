@@ -18,6 +18,7 @@ import {
   Users,
   X
 } from "lucide-react";
+import { BrandLockup } from "@/components/BrandMark";
 import { useDemoData } from "@/components/DemoDataProvider";
 import { authClient } from "@/lib/auth-client";
 import type { AppDataMode } from "@/lib/server/config";
@@ -103,16 +104,10 @@ export function HrShell({ children, mode = "demo", organizationName = "Nexora La
   };
 
   const sidebar = (
-    <aside className="flex h-full w-[268px] shrink-0 flex-col border-r border-white/[0.065] bg-[#070c16]">
+    <aside className="flex h-full w-[268px] shrink-0 flex-col border-r border-white/[0.065] bg-ink">
       <div className="flex h-[70px] items-center justify-between border-b border-white/[0.06] px-5">
         <Link href="/hr" className="group flex items-center gap-3" onClick={() => setMobileOpen(false)}>
-          <span className="grid h-9 w-9 place-items-center rounded-xl border border-violet/25 bg-gradient-to-br from-violet/[0.2] to-mint/[0.06] shadow-[0_0_24px_rgba(156,140,255,.12)]">
-            <span className="h-2.5 w-2.5 rounded-full border border-white/80 bg-violet shadow-[0_0_10px_rgba(156,140,255,.8)]" />
-          </span>
-          <span>
-            <span className="block text-[13px] font-bold tracking-[0.08em] text-white">ECHOPANEL</span>
-            <span className="block text-[9px] font-medium uppercase tracking-[0.16em] text-slate-500">{organizationName} · Hiring</span>
-          </span>
+          <BrandLockup subtitle={`${organizationName} · Hiring`} />
         </Link>
         <button className="text-slate-500 lg:hidden" onClick={() => setMobileOpen(false)} aria-label="Close navigation">
           <X size={18} />
@@ -135,7 +130,7 @@ export function HrShell({ children, mode = "demo", organizationName = "Nexora La
                   className={cn(
                     "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[12px] font-medium transition",
                     active
-                      ? "border border-mint/15 bg-mint/[0.065] text-white shadow-[inset_2px_0_0_rgba(124,245,197,.8)]"
+                      ? "border border-mint/10 bg-mint/[0.06] font-semibold text-white"
                       : "border border-transparent text-slate-400 hover:bg-white/[0.035] hover:text-slate-100"
                   )}
                 >
@@ -184,8 +179,7 @@ export function HrShell({ children, mode = "demo", organizationName = "Nexora La
   );
 
   return (
-    <div className="min-h-screen bg-[#050a13] text-slate-200">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_22%_0%,rgba(156,140,255,.055),transparent_32%),radial-gradient(circle_at_88%_12%,rgba(124,245,197,.04),transparent_26%)]" />
+    <div className="theme-light min-h-screen text-slate-200">
       <div className="relative z-10 flex min-h-screen">
         <div className="hidden lg:sticky lg:top-0 lg:block lg:h-screen">{sidebar}</div>
         {mobileOpen && (
@@ -196,13 +190,13 @@ export function HrShell({ children, mode = "demo", organizationName = "Nexora La
         )}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex h-[70px] items-center gap-3 border-b border-white/[0.06] bg-[#050a13]/85 px-4 backdrop-blur-xl lg:px-7">
+          <header className="sticky top-0 z-30 flex h-[70px] items-center gap-3 border-b border-white/[0.06] bg-ink/85 px-4 backdrop-blur-xl lg:px-7">
             <button className="grid h-9 w-9 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.025] text-slate-400 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
               <Menu size={17} />
             </button>
             <div className="hidden min-w-0 md:block">
-              <p className="text-[9px] font-bold uppercase tracking-[0.17em] text-slate-600">EchoPanel / {organizationName}</p>
-              <p className="mt-0.5 truncate text-xs font-medium text-slate-300">{title}</p>
+              <p className="text-[11px] text-slate-500">{organizationName}</p>
+              <p className="truncate font-display text-[15px] font-semibold text-white">{title}</p>
             </div>
             <form onSubmit={onSearch} className="relative ml-auto hidden w-full max-w-[320px] sm:block">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" />

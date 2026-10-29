@@ -87,7 +87,7 @@ export function DatabaseInterviewReport({ interviewId }: { interviewId: string }
     return (
       <div className="mx-auto max-w-3xl space-y-5">
         <Link href={`/hr/interviews/${interview.id}`} className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-500 hover:text-white"><ArrowLeft size={12} /> Interview details</Link>
-        <section className="rounded-3xl border border-white/[0.08] bg-[#0a111e]/90 p-7 text-center">
+        <section className="rounded-3xl border border-white/[0.08] bg-card/90 p-7 text-center">
           <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-amber-300/15 bg-amber-300/[0.05]"><TriangleAlert size={20} className="text-amber-200/80" /></div>
           <p className="mt-4"><Badge tone={status.tone}>Report not available</Badge></p>
           <h1 className="mt-3 text-xl font-semibold text-white">{status.title}</h1>
@@ -118,7 +118,7 @@ export function DatabaseInterviewReport({ interviewId }: { interviewId: string }
         </div>
       )}
 
-      <section className="rounded-3xl border border-white/[0.08] bg-[#0a111e]/90 p-6 sm:p-8">
+      <section className="rounded-3xl border border-white/[0.08] bg-card/90 p-6 sm:p-8">
         <div className="flex flex-col justify-between gap-6 border-b border-white/[0.07] pb-6 md:flex-row md:items-start">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -146,31 +146,31 @@ export function DatabaseInterviewReport({ interviewId }: { interviewId: string }
             <div key={key} className="rounded-xl border border-white/[0.06] bg-black/10 p-3.5">
               <p className="text-[9px] text-slate-500">{LABELS[key] ?? key}</p>
               <div className="mt-2 flex items-end justify-between gap-2">
-                <span className="text-lg font-semibold text-white">{value.score.toFixed(1)}</span>
+                <span className="text-lg font-semibold text-white">{typeof value.score === "number" ? value.score.toFixed(1) : "–"}</span>
                 <span className="text-[8px] text-slate-600">{Math.round(value.confidence * 100)}% conf.</span>
               </div>
-              <div className="mt-2"><ProgressBar value={value.score * 10} tone={value.score >= 8 ? "mint" : value.score >= 6 ? "violet" : "amber"} /></div>
+              <div className="mt-2"><ProgressBar value={typeof value.score === "number" ? value.score * 10 : 0} tone={value.score >= 8 ? "mint" : value.score >= 6 ? "violet" : "amber"} /></div>
             </div>
           ))}
         </div>
       </section>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+        <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
           <h2 className="flex items-center gap-2 text-xs font-semibold text-mint"><CheckCircle2 size={13} /> Strengths</h2>
           <div className="mt-3 space-y-2">
             {assessment.strengths.map((item, index) => <p key={`${item}-${index}`} className="flex gap-2 text-[11px] leading-5 text-slate-400"><span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-mint/70" /> {item}</p>)}
             {!assessment.strengths.length && <p className="text-[10px] text-slate-600">No strengths recorded.</p>}
           </div>
         </section>
-        <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+        <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
           <h2 className="flex items-center gap-2 text-xs font-semibold text-rose-200"><TriangleAlert size={13} /> Risks</h2>
           <div className="mt-3 space-y-2">
             {assessment.risks.map((item, index) => <p key={`${item}-${index}`} className="flex gap-2 text-[11px] leading-5 text-slate-400"><span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-rose-300/70" /> {item}</p>)}
             {!assessment.risks.length && <p className="text-[10px] text-slate-600">No risks recorded.</p>}
           </div>
         </section>
-        <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+        <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
           <h2 className="flex items-center gap-2 text-xs font-semibold text-amber-200"><CalendarDays size={13} /> Unresolved concerns</h2>
           <div className="mt-3 space-y-2">
             {assessment.unresolvedConcerns.map((item, index) => <p key={`${item}-${index}`} className="flex gap-2 text-[11px] leading-5 text-slate-400"><span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-amber-300/70" /> {item}</p>)}
@@ -179,14 +179,14 @@ export function DatabaseInterviewReport({ interviewId }: { interviewId: string }
         </section>
       </div>
 
-      <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+      <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
         <h2 className="text-sm font-semibold text-white">Dimension evidence</h2>
         <div className="mt-4 space-y-4">
           {dimensionEntries.map(([key, value]) => (
             <div key={key} className="rounded-xl border border-white/[0.06] bg-black/10 p-4">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-[11px] font-semibold text-slate-200">{LABELS[key] ?? key}</h3>
-                <span className="text-[9px] text-slate-500">{value.score.toFixed(1)} / 10</span>
+                <span className="text-[9px] text-slate-500">{typeof value.score === "number" ? `${value.score.toFixed(1)} / 10` : "Insufficient evidence"}</span>
               </div>
               {value.evidence.length ? value.evidence.map((item, index) => <p key={`${item}-${index}`} className="mt-2 text-[10px] leading-5 text-slate-500">“{item}”</p>) : <p className="mt-2 text-[10px] text-slate-600">No evidence was persisted for this dimension.</p>}
             </div>

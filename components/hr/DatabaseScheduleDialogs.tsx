@@ -402,7 +402,7 @@ export function DatabaseCancelInterviewDialog({
       footer={
         <>
           <button onClick={onClose} disabled={busy} className={secondaryButton}>Keep interview</button>
-          <button onClick={confirm} disabled={busy} className="inline-flex items-center justify-center rounded-xl bg-rose-400 px-4 py-2.5 text-sm font-semibold text-[#1a080b] disabled:opacity-50">{busy ? "Cancelling..." : "Cancel interview"}</button>
+          <button onClick={confirm} disabled={busy} className="inline-flex items-center justify-center rounded-xl bg-rose-400 px-4 py-2.5 text-sm font-semibold text-ink disabled:opacity-50">{busy ? "Cancelling..." : "Cancel interview"}</button>
         </>
       }
     >

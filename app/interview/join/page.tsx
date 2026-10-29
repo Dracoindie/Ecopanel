@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mic, ShieldCheck, TriangleAlert } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
+import { PanelTrio } from "@/components/PanelTrio";
 
 const SETUP_KEY = "echopanel-interview-setup";
 
@@ -75,7 +77,7 @@ export default function JoinInterview() {
   return (
     <main className="grid min-h-screen place-items-center bg-ink p-4">
       <section className="glass w-full max-w-md rounded-3xl p-7 text-center">
-        <p className="text-xs font-bold tracking-[.2em] text-mint">ECHOPANEL INTERVIEW</p>
+        <p className="flex items-center justify-center gap-2 text-[14px] font-medium text-slate-300"><BrandMark size={22} /> EchoPanel interview</p>
         {state === "redeeming" && <p className="mt-6 text-sm text-slate-400">Checking your interview link…</p>}
         {state === "error" && (
           <>
@@ -94,7 +96,11 @@ export default function JoinInterview() {
             <button onClick={enterRoom} className="mx-auto mt-6 flex items-center gap-2 rounded-full bg-mint px-6 py-3 text-sm font-semibold text-ink">
               <Mic size={16} /> Enter interview room
             </button>
-            <p className="mt-4 text-[11px] text-slate-500">This session ends when you finish the interview or after two hours.</p>
+            <div className="mt-6 border-t border-white/10 pt-5 text-left">
+              <p className="mb-3 text-[13px] text-slate-400">Your panel</p>
+              <PanelTrio compact />
+            </div>
+            <p className="mt-5 text-[12px] text-slate-500">This session ends when you finish the interview or after two hours.</p>
           </>
         )}
       </section>

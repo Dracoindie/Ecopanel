@@ -15,11 +15,11 @@ export function CareersHeader() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#05070b]/85 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-ink/85 backdrop-blur-xl">
       <div className="mx-auto flex h-[76px] w-full max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
         <Link href="/careers" className="group flex items-center gap-2" onClick={() => setOpen(false)}>
           <span className="text-[21px] font-semibold tracking-[-0.04em] text-white">nexora</span>
-          <span className="mt-[-12px] h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_12px_rgba(156,140,255,.9)]" />
+          <span className="mt-[-12px] h-1.5 w-1.5 rounded-full bg-violet" />
         </Link>
 
         <nav className="hidden items-center gap-1 rounded-full border border-white/[0.09] bg-white/[0.03] px-1.5 py-1.5 md:flex">
@@ -34,9 +34,9 @@ export function CareersHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Link href="/careers#open-roles" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-[12px] font-semibold text-[#0b0c10] shadow-[0_0_30px_rgba(255,255,255,.08)] transition hover:bg-slate-100">
+          <Link href="/careers#open-roles" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-[12px] font-semibold text-ink transition hover:bg-slate-100">
             View open roles
-            <ArrowRight size={13} />
+
           </Link>
         </div>
 
@@ -46,16 +46,16 @@ export function CareersHeader() {
       </div>
 
       {open && (
-        <div className="border-t border-white/[0.07] bg-[#070a10] px-4 py-4 md:hidden">
+        <div className="border-t border-white/[0.07] bg-ink px-4 py-4 md:hidden">
           <div className="space-y-1">
             {[...links, { label: "Talent portal", href: "/hr/login" }].map(link => (
               <Link key={link.href} href={link.href} onClick={() => setOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm text-slate-300 hover:bg-white/[0.04] hover:text-white">
                 {link.label}
               </Link>
             ))}
-            <Link href="/careers#open-roles" onClick={() => setOpen(false)} className={cn("mt-2 flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#0b0c10]")}>
+            <Link href="/careers#open-roles" onClick={() => setOpen(false)} className={cn("mt-2 flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-ink")}>
               View open roles
-              <ArrowRight size={14} />
+
             </Link>
           </div>
         </div>
@@ -66,7 +66,7 @@ export function CareersHeader() {
 
 export function CareersFooter() {
   return (
-    <footer className="border-t border-white/[0.07] bg-[#05070b]">
+    <footer className="border-t border-white/[0.07] bg-ink">
       <div className="mx-auto grid w-full max-w-[1440px] gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_1fr_1fr] lg:px-10">
         <div>
           <Link href="/careers" className="inline-flex items-center gap-2">

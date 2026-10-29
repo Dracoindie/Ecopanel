@@ -132,7 +132,7 @@ export function CalendarConnectionCard({ onChanged }: { onChanged?: () => void }
   const queued = status.queue.pending + status.queue.retrying + status.queue.processing;
 
   return (
-    <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-4 sm:p-5">
+    <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-4 sm:p-5">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div className="flex min-w-0 items-start gap-3">
           <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${

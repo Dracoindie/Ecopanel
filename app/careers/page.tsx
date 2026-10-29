@@ -15,6 +15,7 @@ import {
   X
 } from "lucide-react";
 import { useDemoData } from "@/components/DemoDataProvider";
+import { PanelTrio } from "@/components/PanelTrio";
 import { useIsDatabaseMode } from "@/components/AppModeProvider";
 import type { Job } from "@/lib/domain";
 import { formatDate } from "@/lib/format";
@@ -118,9 +119,8 @@ export default function CareersPage() {
               Nexora Labs builds the high-performance, real-time data and AI primitives powering the next generation of mission-critical systems. We are looking for people who care about the foundations.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Link href="#open-roles" className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-[#090b10] transition hover:bg-slate-100">
+              <Link href="#open-roles" className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-ink transition hover:bg-slate-100">
                 Explore open roles
-                <ArrowRight size={15} />
               </Link>
               <Link href="#how-we-hire" className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] px-6 py-3 text-sm font-medium text-slate-300 transition hover:border-white/25 hover:text-white">
                 How we hire
@@ -133,50 +133,11 @@ export default function CareersPage() {
             </div>
           </div>
 
-          <div className="relative mx-auto aspect-square w-full max-w-[600px]">
-            <div className="absolute inset-[9%] rounded-full border border-white/[0.06]" />
-            <div className="absolute inset-[18%] rounded-full border border-white/[0.075]" />
-            <div className="absolute inset-[29%] rounded-full border border-white/[0.085]" />
-            <div
-              className="absolute inset-[8%] rounded-full opacity-60"
-              style={{
-                background:
-                  "repeating-conic-gradient(from 0deg, rgba(255,255,255,.19) 0deg .45deg, transparent .45deg 2.1deg)",
-                maskImage: "radial-gradient(circle, transparent 0 30%, black 44%, transparent 72%)",
-                WebkitMaskImage: "radial-gradient(circle, transparent 0 30%, black 44%, transparent 72%)"
-              }}
-            />
-            <div
-              className="absolute inset-[15%] rounded-full opacity-30"
-              style={{
-                background:
-                  "repeating-conic-gradient(from 5deg, rgba(156,140,255,.65) 0deg .35deg, transparent .35deg 3.2deg)",
-                maskImage: "radial-gradient(circle, transparent 0 48%, black 58%, transparent 82%)",
-                WebkitMaskImage: "radial-gradient(circle, transparent 0 48%, black 58%, transparent 82%)"
-              }}
-            />
-            <div className="absolute left-1/2 top-1/2 h-[34%] w-[34%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(245,184,91,.36)_0%,rgba(156,140,255,.12)_38%,transparent_68%)] blur-2xl" />
-            <div className="absolute left-1/2 top-1/2 h-[26%] w-[26%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-200/15 bg-[#08070a]/60 shadow-[inset_0_0_60px_rgba(245,184,91,.12),0_0_80px_rgba(156,140,255,.1)] backdrop-blur-sm">
-              <div className="absolute inset-[22%] rotate-45 border border-white/15" />
-              <div className="absolute inset-[38%] rounded-full border border-violet/30" />
-            </div>
-            <div className="absolute right-[5%] top-[23%] hidden rounded-full border border-white/[0.08] bg-[#090c12]/80 px-3 py-1.5 font-mono text-[8px] uppercase tracking-[0.18em] text-slate-500 backdrop-blur sm:block">
-              Talent signal / 2026
-            </div>
-            <div className="absolute bottom-[5%] left-[5%] hidden w-[200px] rounded-2xl border border-white/[0.08] bg-[#090c12]/85 p-3.5 shadow-2xl backdrop-blur sm:block">
-              <p className="font-mono text-[8px] uppercase tracking-[0.16em] text-slate-500">Open systems</p>
-              <div className="mt-2.5 space-y-2">
-                {["Distributed data", "Applied AI", "Design systems"].map((item, index) => (
-                  <div key={item} className="flex items-center gap-2 text-[10px] text-slate-400">
-                    <span className={cn("h-1.5 w-1.5 rounded-full", index === 0 ? "bg-mint" : index === 1 ? "bg-violet" : "bg-amber-300")} />
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <p className="absolute bottom-[2%] right-[4%] font-mono text-[8px] uppercase tracking-[0.16em] text-slate-600">
-              Topographic talent field // v2.6
-            </p>
+          <div className="fade-up rounded-3xl border border-white/10 bg-card p-6 sm:p-8">
+            <p className="text-[14px] font-medium text-slate-400">How you will be interviewed</p>
+            <h2 className="mt-2 text-[28px] font-semibold leading-tight text-white">A live voice conversation with a panel of three.</h2>
+            <p className="mt-3 text-[15px] leading-7 text-slate-400">Each interviewer listens for something different. They take turns, so you can answer in your own words without being talked over.</p>
+            <PanelTrio className="mt-7" />
           </div>
         </div>
       </section>
@@ -185,7 +146,7 @@ export default function CareersPage() {
         {VALUES.map(value => {
           const Icon = value.icon;
           return (
-            <div key={value.label} className="bg-[#05070b] px-6 py-8 lg:px-8">
+            <div key={value.label} className="bg-ink px-6 py-8 lg:px-8">
               <Icon size={16} className="text-violet-200/80" />
               <p className="mt-4 text-sm font-semibold text-white">{value.label}</p>
               <p className="mt-2 max-w-xs text-xs leading-5 text-slate-500">{value.text}</p>
@@ -222,10 +183,10 @@ export default function CareersPage() {
                 aria-label="Search open roles"
               />
             </label>
-            <select value={location} onChange={event => setLocation(event.target.value)} className={`${publicInputClass} appearance-none [&>option]:bg-[#0b0f17]`} aria-label="Filter by location">
+            <select value={location} onChange={event => setLocation(event.target.value)} className={`${publicInputClass} appearance-none [&>option]:bg-ink`} aria-label="Filter by location">
               {locations.map(value => <option key={value} value={value}>{value === "All" ? "All locations" : value}</option>)}
             </select>
-            <select value={employmentType} onChange={event => setEmploymentType(event.target.value)} className={`${publicInputClass} appearance-none [&>option]:bg-[#0b0f17]`} aria-label="Filter by employment type">
+            <select value={employmentType} onChange={event => setEmploymentType(event.target.value)} className={`${publicInputClass} appearance-none [&>option]:bg-ink`} aria-label="Filter by employment type">
               {types.map(value => <option key={value} value={value}>{value === "All" ? "All employment types" : value}</option>)}
             </select>
           </div>
@@ -237,7 +198,7 @@ export default function CareersPage() {
                 className={cn(
                   "rounded-full border px-3.5 py-1.5 text-[11px] font-medium transition",
                   department === value
-                    ? "border-white bg-white text-[#080a0f]"
+                    ? "border-white bg-white text-ink"
                     : "border-white/[0.08] bg-transparent text-slate-500 hover:border-white/20 hover:text-white"
                 )}
               >
@@ -294,7 +255,7 @@ export default function CareersPage() {
         </div>
       </section>
 
-      <section id="how-we-hire" className="scroll-mt-24 border-y border-white/[0.055] bg-[#080b10]">
+      <section id="how-we-hire" className="scroll-mt-24 border-y border-white/[0.055] bg-ink">
         <div className="mx-auto w-full max-w-[1440px] px-4 py-20 sm:px-6 lg:px-10">
           <div className="grid gap-12 lg:grid-cols-[.75fr_1.25fr]">
             <div>
@@ -303,12 +264,11 @@ export default function CareersPage() {
               <p className="mt-4 max-w-md text-sm leading-6 text-slate-500">We aim to make each step legible. You should always know what we are looking for, who you will meet, and what happens next.</p>
               <Link href="/demo" className="mt-7 inline-flex items-center gap-2 text-xs font-medium text-slate-300 transition hover:text-white">
                 Preview the interview experience
-                <ArrowRight size={13} />
               </Link>
             </div>
             <div className="space-y-px overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.06]">
               {HIRING_STEPS.map(step => (
-                <div key={step.number} className="grid gap-4 bg-[#070a10] px-5 py-6 sm:grid-cols-[44px_1fr] sm:px-7">
+                <div key={step.number} className="grid gap-4 bg-ink px-5 py-6 sm:grid-cols-[44px_1fr] sm:px-7">
                   <span className="font-mono text-[10px] text-violet-300/70">{step.number}</span>
                   <div>
                     <h3 className="text-sm font-semibold text-white">{step.title}</h3>
@@ -322,12 +282,12 @@ export default function CareersPage() {
       </section>
 
       <section className="mx-auto w-full max-w-[1440px] px-4 py-20 sm:px-6 lg:px-10">
-        <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_20%_20%,rgba(156,140,255,.13),transparent_36%),radial-gradient(circle_at_85%_80%,rgba(124,245,197,.06),transparent_30%)] p-8 sm:p-12">
+        <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-card p-8 sm:p-12">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">No perfect profile required</p>
           <h2 className="font-display mt-3 max-w-2xl text-4xl leading-[1.03] tracking-[-0.035em] text-white sm:text-5xl">If the problem interests you, we would like to hear how you think.</h2>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link href="#open-roles" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#090b10] transition hover:bg-slate-100">
-              Browse open roles <ArrowRight size={14} />
+            <Link href="#open-roles" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-ink transition hover:bg-slate-100">
+              Browse open roles
             </Link>
             <Link href="/hr/login" className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] px-5 py-3 text-sm font-medium text-slate-300 transition hover:border-white/25 hover:text-white">
               Hiring team sign in

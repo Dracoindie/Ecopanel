@@ -52,16 +52,16 @@ function DemoJobsPage() {
         eyebrow="Hiring operations"
         title="Job postings"
         description="Manage role content, publication state, and public visibility. Every job feeds the careers site and applicant pipeline."
-        actions={<Link href="/hr/jobs/new" className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink transition hover:bg-[#9bf8d5]"><Plus size={13} /> Create job</Link>}
+        actions={<Link href="/hr/jobs/new" className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink transition hover:bg-mint-hover"><Plus size={13} /> Create job</Link>}
       />
 
       <div className="grid grid-cols-3 gap-2.5">
-        <div className="rounded-xl border border-white/[0.07] bg-[#0a111e]/70 px-4 py-3"><p className="text-[9px] uppercase tracking-[0.1em] text-slate-600">Published</p><p className="mt-1 text-xl font-semibold text-mint">{published}</p></div>
-        <div className="rounded-xl border border-white/[0.07] bg-[#0a111e]/70 px-4 py-3"><p className="text-[9px] uppercase tracking-[0.1em] text-slate-600">Drafts</p><p className="mt-1 text-xl font-semibold text-amber-200">{drafts}</p></div>
-        <div className="rounded-xl border border-white/[0.07] bg-[#0a111e]/70 px-4 py-3"><p className="text-[9px] uppercase tracking-[0.1em] text-slate-600">Closed</p><p className="mt-1 text-xl font-semibold text-slate-300">{closed}</p></div>
+        <div className="rounded-xl border border-white/[0.07] bg-card/70 px-4 py-3"><p className="text-[9px] uppercase tracking-[0.1em] text-slate-600">Published</p><p className="mt-1 text-xl font-semibold text-mint">{published}</p></div>
+        <div className="rounded-xl border border-white/[0.07] bg-card/70 px-4 py-3"><p className="text-[9px] uppercase tracking-[0.1em] text-slate-600">Drafts</p><p className="mt-1 text-xl font-semibold text-amber-200">{drafts}</p></div>
+        <div className="rounded-xl border border-white/[0.07] bg-card/70 px-4 py-3"><p className="text-[9px] uppercase tracking-[0.1em] text-slate-600">Closed</p><p className="mt-1 text-xl font-semibold text-slate-300">{closed}</p></div>
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+      <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-card/80">
         <div className="grid gap-2.5 border-b border-white/[0.06] p-4 lg:grid-cols-[1.5fr_1fr_1fr]">
           <label className="relative block">
             <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600" />

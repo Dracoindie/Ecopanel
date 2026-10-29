@@ -82,7 +82,7 @@ export function StatCard({
   href?: string;
 }) {
   const content = (
-    <div className={cn(panelClass, "group relative h-full overflow-hidden p-4 transition hover:border-white/[0.14] hover:bg-[#0c1524]/95")}>
+    <div className={cn(panelClass, "group relative h-full overflow-hidden p-4 transition hover:border-white/[0.14] hover:bg-card/95")}>
       <div className="flex items-start justify-between gap-3">
         <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-500">{label}</p>
         {Icon && (
@@ -231,7 +231,7 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl border border-white/[0.1] bg-[#0a111e] shadow-[0_40px_120px_rgba(0,0,0,.55)] sm:rounded-3xl",
+          "relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl border border-white/[0.1] bg-card shadow-[0_40px_120px_rgba(0,0,0,.55)] sm:rounded-3xl",
           sizes[size]
         )}
       >
@@ -283,7 +283,7 @@ export function ConfirmDialog({
           <button
             className={cn(
               "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50",
-              tone === "danger" ? "bg-rose-400 text-[#1a080b] hover:bg-rose-300" : "bg-mint text-ink hover:bg-[#9bf8d5]"
+              tone === "danger" ? "bg-rose-400 text-ink hover:bg-rose-300" : "bg-mint text-ink hover:bg-mint-hover"
             )}
             onClick={onConfirm}
             disabled={busy}

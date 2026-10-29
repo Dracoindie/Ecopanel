@@ -42,7 +42,7 @@ export default function HrDashboardPage() {
             <Link href="/hr/schedule" className="inline-flex items-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.035] px-3.5 py-2.5 text-xs font-medium text-slate-300 transition hover:border-white/20 hover:text-white">
               <CalendarDays size={13} /> Schedule
             </Link>
-            <Link href="/hr/jobs/new" className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink transition hover:bg-[#9bf8d5]">
+            <Link href="/hr/jobs/new" className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink transition hover:bg-mint-hover">
               <Plus size={13} /> New role
             </Link>
           </>
@@ -64,11 +64,11 @@ export default function HrDashboardPage() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
-        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-card/80">
           <SectionHeading
             title="Upcoming interviews"
             description="Scheduled demo sessions across the hiring pipeline."
-            action={<Link href="/hr/schedule" className="inline-flex items-center gap-1 text-[10px] font-medium text-mint hover:text-white">Calendar <ArrowRight size={11} /></Link>}
+            action={<Link href="/hr/schedule" className="inline-flex items-center gap-1 text-[10px] font-medium text-mint hover:text-white">Calendar</Link>}
           />
           <div className="divide-y divide-white/[0.055]">
             {upcoming.slice(0, 4).map(interview => {
@@ -97,11 +97,11 @@ export default function HrDashboardPage() {
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-card/80">
           <SectionHeading
             title="Active job postings"
             description="Public roles currently accepting applications."
-            action={<Link href="/hr/jobs" className="inline-flex items-center gap-1 text-[10px] font-medium text-mint hover:text-white">All jobs <ArrowRight size={11} /></Link>}
+            action={<Link href="/hr/jobs" className="inline-flex items-center gap-1 text-[10px] font-medium text-mint hover:text-white">All jobs</Link>}
           />
           <div className="divide-y divide-white/[0.055]">
             {store.jobs.filter(job => job.status === "Published").slice(0, 5).map(job => (
@@ -123,11 +123,11 @@ export default function HrDashboardPage() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
-        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-card/80">
           <SectionHeading
             title="Recent applications"
             description="Newest applications across every open role."
-            action={<Link href="/hr/applicants" className="inline-flex items-center gap-1 text-[10px] font-medium text-mint hover:text-white">Pipeline <ArrowRight size={11} /></Link>}
+            action={<Link href="/hr/applicants" className="inline-flex items-center gap-1 text-[10px] font-medium text-mint hover:text-white">Pipeline</Link>}
           />
           <div className="overflow-x-auto">
             <table className="hr-table w-full min-w-[600px]">
@@ -168,7 +168,7 @@ export default function HrDashboardPage() {
         </section>
 
         <div className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-white">Pipeline health</p>
@@ -201,11 +201,10 @@ export default function HrDashboardPage() {
             </div>
             <Link href="/hr/applicants" className="mt-5 flex items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.025] px-3.5 py-2.5 text-[10px] font-medium text-slate-400 transition hover:text-white">
               Review applicant pipeline
-              <ArrowRight size={12} />
             </Link>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-white">Email activity</p>
@@ -226,7 +225,7 @@ export default function HrDashboardPage() {
         </div>
       </div>
 
-      <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/60 px-5 py-4">
+      <section className="rounded-2xl border border-white/[0.07] bg-card/60 px-5 py-4">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div className="flex items-center gap-2.5">
             <Clock3 size={14} className="text-slate-500" />

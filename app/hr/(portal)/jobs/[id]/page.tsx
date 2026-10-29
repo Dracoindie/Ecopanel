@@ -65,7 +65,7 @@ function DemoJobDetailPage() {
     <div className="space-y-5">
       <Link href="/hr/jobs" className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-500 transition hover:text-white"><ArrowLeft size={12} /> Back to jobs</Link>
 
-      <section className="rounded-2xl border border-white/[0.08] bg-[#0a111e]/90 p-5 sm:p-6">
+      <section className="rounded-2xl border border-white/[0.08] bg-card/90 p-5 sm:p-6">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
           <div className="max-w-3xl">
             <div className="flex flex-wrap items-center gap-2">
@@ -92,7 +92,7 @@ function DemoJobDetailPage() {
                 <button onClick={() => setCloseOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-rose-400/15 bg-rose-400/[0.05] px-4 py-2.5 text-sm font-medium text-rose-200 transition hover:bg-rose-400/[0.1]">Close role</button>
               </>
             ) : (
-              <button onClick={publish} className="inline-flex items-center gap-2 rounded-xl bg-mint px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-[#9bf8d5]"><Send size={13} /> Publish</button>
+              <button onClick={publish} className="inline-flex items-center gap-2 rounded-xl bg-mint px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-mint-hover"><Send size={13} /> Publish</button>
             )}
           </div>
         </div>
@@ -101,14 +101,14 @@ function DemoJobDetailPage() {
       <DemoBanner compact>Publishing state is a frontend demo transition. Changes reset when the browser session ends.</DemoBanner>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-white/[0.07] bg-[#0a111e]/70 p-4"><div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.1em] text-slate-600"><Users size={11} /> Applicants</div><p className="mt-2 text-2xl font-semibold text-white">{counts.applied}</p></div>
-        <div className="rounded-xl border border-white/[0.07] bg-[#0a111e]/70 p-4"><div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.1em] text-slate-600"><CheckCircle2 size={11} /> Interview stage</div><p className="mt-2 text-2xl font-semibold text-violet-200">{counts.interview}</p></div>
-        <div className="rounded-xl border border-white/[0.07] bg-[#0a111e]/70 p-4"><div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.1em] text-slate-600"><CheckCircle2 size={11} /> Selected</div><p className="mt-2 text-2xl font-semibold text-mint">{counts.selected}</p></div>
+        <div className="rounded-xl border border-white/[0.07] bg-card/70 p-4"><div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.1em] text-slate-600"><Users size={11} /> Applicants</div><p className="mt-2 text-2xl font-semibold text-white">{counts.applied}</p></div>
+        <div className="rounded-xl border border-white/[0.07] bg-card/70 p-4"><div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.1em] text-slate-600"><CheckCircle2 size={11} /> Interview stage</div><p className="mt-2 text-2xl font-semibold text-violet-200">{counts.interview}</p></div>
+        <div className="rounded-xl border border-white/[0.07] bg-card/70 p-4"><div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.1em] text-slate-600"><CheckCircle2 size={11} /> Selected</div><p className="mt-2 text-2xl font-semibold text-mint">{counts.selected}</p></div>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
         <section className="space-y-4">
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <div className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <h2 className="text-sm font-semibold text-white">Role description</h2>
             <p className="mt-3 whitespace-pre-wrap text-xs leading-6 text-slate-400">{job.description}</p>
             <div className="mt-6 grid gap-6 border-t border-white/[0.06] pt-5 sm:grid-cols-2">
@@ -123,7 +123,7 @@ function DemoJobDetailPage() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+          <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-card/80">
             <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
               <div><h2 className="text-sm font-semibold text-white">Applicants for this role</h2><p className="mt-1 text-[10px] text-slate-500">{jobApplicantCount(store, job.id)} demo candidates</p></div>
               <Link href={`/hr/applicants?job=${job.id}`} className="text-[10px] font-medium text-mint hover:text-white">Full pipeline</Link>
@@ -146,7 +146,7 @@ function DemoJobDetailPage() {
         </section>
 
         <aside className="space-y-4">
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <div className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <h2 className="text-sm font-semibold text-white">Publication controls</h2>
             <div className="mt-4 space-y-3 text-[10px]">
               <div className="flex items-center justify-between gap-3"><span className="text-slate-500">Status</span><JobStatusBadge status={job.status} /></div>
@@ -163,7 +163,7 @@ function DemoJobDetailPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/60 p-4">
+          <div className="rounded-2xl border border-white/[0.07] bg-card/60 p-4">
             <p className="text-[10px] font-semibold text-slate-300">Hiring summary</p>
             <div className="mt-3 space-y-2.5 text-[10px]">
               <div className="flex justify-between"><span className="text-slate-600">Open applications</span><span className="text-slate-300">{applicants.filter(item => !["Rejected", "Selected"].includes(item.application.stage)).length}</span></div>

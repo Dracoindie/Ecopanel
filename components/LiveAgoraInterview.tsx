@@ -883,6 +883,8 @@ export function LiveAgoraInterview() {
         onToggleMute={toggleMute}
         onTextInputChange={setTextInput}
         onManualSubmit={handleManualCandidateSubmit}
+        voiceRtcRef={rtcRef}
+        voiceMicRef={trackRef}
       />
       <div ref={audioRef} />
     </>

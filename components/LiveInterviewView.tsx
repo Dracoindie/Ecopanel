@@ -24,6 +24,10 @@ import {
   WifiOff,
   Zap
 } from "lucide-react";
+import type { MutableRefObject } from "react";
+import { BrandLockup } from "@/components/BrandMark";
+import { PanelVoice } from "@/components/live/PanelVoice";
+import { interviewerColor } from "@/components/PanelTrio";
 import type { AgentId, AgentStatus, SharedInterviewState } from "@/lib/types";
 
 type ConnectionState = "ready" | "connecting" | "live" | "error";
@@ -48,6 +52,9 @@ type LiveInterviewViewProps = {
   onToggleMute: () => void;
   onTextInputChange: (value: string) => void;
   onManualSubmit: (event: FormEvent) => void;
+  /** Read-only refs for the voice visual: the RTC client (remote audio) and the microphone track. */
+  voiceRtcRef?: MutableRefObject<any>;
+  voiceMicRef?: MutableRefObject<any>;
 };
 
 const panelAgents: AgentId[] = ["moderator", "technical", "product", "behavioural"];
@@ -280,23 +287,16 @@ function InterviewerCard({
             : "border-white/[0.06] bg-white/[0.018]"
       }`}
     >
-      {isVoiceSpeaking ? (
-        <span className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-mint to-transparent" />
-      ) : null}
-      {isFocus ? (
-        <span className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-violet/70 to-transparent" />
-      ) : null}
       <div className="flex items-center gap-3">
         <div
-          className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border text-xs font-bold transition ${
-            isVoiceSpeaking
-              ? "border-mint/40 bg-mint text-ink"
-              : isLiveVoice
-                ? "border-mint/20 bg-mint/[0.06] text-mint"
-                : isFocus || isThinking
-                  ? "border-violet/25 bg-violet/[0.08] text-violet-200"
-                  : "border-white/[0.07] bg-white/[0.035] text-slate-300"
+          className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-bold text-white transition ${
+            interviewerColor(id)
+              ? isFocus ? "border-[3.5px]" : isThinking ? "border-[2.5px]" : "border-2 opacity-70"
+              : isVoiceSpeaking
+                ? "border border-mint/40 bg-mint text-ink"
+                : "border border-white/20 text-slate-300"
           }`}
+          style={interviewerColor(id) ? { borderColor: interviewerColor(id) } : undefined}
         >
           {meta.short}
         </div>
@@ -416,7 +416,7 @@ function StageControls({
         type="button"
         onClick={onStart}
         disabled={connectionState === "connecting"}
-        className="inline-flex items-center gap-2 rounded-full bg-mint px-4 py-2.5 text-xs font-semibold text-ink shadow-[0_0_24px_rgba(124,245,197,.12)] transition hover:bg-[#9bf8d5] disabled:cursor-wait disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-full bg-mint px-4 py-2.5 text-xs font-semibold text-ink shadow-[0_0_24px_rgba(124,245,197,.12)] transition hover:bg-mint-hover disabled:cursor-wait disabled:opacity-60"
       >
         <Mic size={14} />
         {connectionState === "connecting" ? "Connecting…" : "Start live panel"}
@@ -458,7 +458,9 @@ function Stage({
   onStop,
   onToggleMute,
   onTextInputChange,
-  onManualSubmit
+  onManualSubmit,
+  voiceRtcRef,
+  voiceMicRef
 }: Pick<
   LiveInterviewViewProps,
   | "connectionState"
@@ -472,6 +474,8 @@ function Stage({
   | "onToggleMute"
   | "onTextInputChange"
   | "onManualSubmit"
+  | "voiceRtcRef"
+  | "voiceMicRef"
 > & { elapsed: string }) {
   const isLive = connectionState === "live";
   const hasEnded = connectionState === "ready" && statusMessage === "Live interview ended.";
@@ -482,18 +486,14 @@ function Stage({
 
   return (
     <section className="surface relative order-1 flex min-h-[620px] min-w-0 flex-col overflow-hidden rounded-[28px] xl:order-2">
-      <div className="pointer-events-none absolute inset-0 gridline opacity-[0.22]" />
-      <div className="stage-glow pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
-
       <header className="relative z-10 flex flex-wrap items-start justify-between gap-4 border-b border-white/[0.06] px-5 py-4 lg:px-6">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.24em] text-slate-500">
-            <span className="h-1 w-1 rounded-full bg-mint/80" />
-            Live boardroom
+          <div className="flex items-center gap-2 text-[12px] text-slate-500">
+            Live interview
             <span className="text-slate-700">/</span>
             <span className="text-slate-400">{connectionMeta[connectionState].label}</span>
           </div>
-          <h1 className="mt-2 truncate text-lg font-semibold tracking-[-0.01em] text-white sm:text-xl">
+          <h1 className="mt-1 truncate text-xl font-semibold text-white sm:text-2xl">
             {interviewState.targetRole}
           </h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
@@ -514,42 +514,31 @@ function Stage({
       </header>
 
       <div className="relative z-10 flex flex-1 flex-col">
-        <div className="flex flex-1 flex-col items-center justify-center px-5 py-10 text-center sm:py-12">
-          <div className="relative">
-            <div className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.04] sm:h-72 sm:w-72" />
-            <div className="absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-mint/[0.08] sm:h-60 sm:w-60" />
-            <div
-              className={`absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border border-mint/15 sm:h-52 sm:w-52 ${
-                interviewState.activeSpeaker === "candidate" || isLive ? "orb-breathe" : ""
+        <div className="flex flex-1 flex-col items-center justify-center px-5 py-8 text-center sm:py-10">
+          <PanelVoice
+            rtcRef={voiceRtcRef}
+            micRef={voiceMicRef}
+            live={isLive}
+            muted={muted}
+            activeSpeaker={interviewState.activeSpeaker}
+            agentStates={interviewState.agentStates}
+          />
+          <span
+            className={`mt-4 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-[12px] font-medium ${
+              interviewState.activeSpeaker === "candidate"
+                ? "border-white/30 text-white"
+                : "border-white/[0.1] text-slate-400"
+            }`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                interviewState.activeSpeaker === "candidate" ? "bg-white status-pulse" : "bg-slate-600"
               }`}
             />
-            <div
-              className={`relative grid h-32 w-32 place-items-center rounded-full border text-3xl font-semibold tracking-[0.04em] transition duration-500 sm:h-36 sm:w-36 ${
-                interviewState.activeSpeaker === "candidate"
-                  ? "border-mint/45 bg-gradient-to-br from-mint/20 via-[#14243a] to-violet/15 text-white shadow-[0_0_60px_rgba(124,245,197,.13)]"
-                  : "border-white/[0.09] bg-gradient-to-br from-white/[0.07] via-[#101a2d] to-violet/[0.08] text-slate-100"
-              }`}
-            >
-              <span className="absolute inset-[7px] rounded-full border border-white/[0.045]" />
-              {initials(interviewState.candidateName)}
-            </div>
-            <span
-              className={`absolute -bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] ${
-                interviewState.activeSpeaker === "candidate"
-                  ? "border-mint/25 bg-[#0b1422] text-mint"
-                  : "border-white/[0.08] bg-[#0b1422] text-slate-400"
-              }`}
-            >
-              <span
-                className={`h-1 w-1 rounded-full ${
-                  interviewState.activeSpeaker === "candidate" ? "bg-mint status-pulse" : "bg-slate-600"
-                }`}
-              />
-              {interviewState.activeSpeaker === "candidate" ? "Speaking now" : "Listening"}
-            </span>
-          </div>
+            {interviewState.activeSpeaker === "candidate" ? "Candidate speaking" : "Candidate microphone"}
+          </span>
 
-          <div className="mt-8">
+          <div className="mt-6">
             <h2 className="text-xl font-semibold tracking-[-0.01em] text-white sm:text-2xl">
               {interviewState.candidateName}
             </h2>
@@ -633,7 +622,7 @@ function Stage({
             <button
               type="submit"
               disabled={isAnalyzing}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink transition hover:bg-[#9bf8d5] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink transition hover:bg-mint-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Send size={13} />
               <span className="hidden sm:inline">{isAnalyzing ? "Analyzing" : "Send"}</span>
@@ -779,7 +768,7 @@ function DiagnosticsPanel({
         <div className="border-t border-white/[0.05] p-3">
           <Link
             href={`/passport/EP-${interviewState.interviewId.slice(0, 6).toUpperCase()}`}
-            className="flex items-center justify-center gap-2 rounded-xl bg-mint px-3 py-2.5 text-[11px] font-semibold text-ink transition hover:bg-[#9bf8d5]"
+            className="flex items-center justify-center gap-2 rounded-xl bg-mint px-3 py-2.5 text-[11px] font-semibold text-ink transition hover:bg-mint-hover"
           >
             <Award size={14} />
             View verified passport
@@ -802,7 +791,7 @@ function InsightRail({
   const decision = interviewState.lastDecision;
 
   return (
-    <aside className="surface order-3 flex min-h-[560px] min-w-0 flex-col overflow-hidden rounded-[24px]">
+    <aside className="surface order-3 flex xl:min-h-[560px] min-w-0 flex-col overflow-hidden rounded-[24px]">
       <div className="flex items-center gap-2.5 border-b border-white/[0.06] px-4 py-3.5">
         <Sparkles size={14} className="text-mint" />
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Live intelligence</p>
@@ -931,24 +920,18 @@ export function LiveInterviewView({
   onStop,
   onToggleMute,
   onTextInputChange,
-  onManualSubmit
+  onManualSubmit,
+  voiceRtcRef,
+  voiceMicRef
 }: LiveInterviewViewProps) {
   const elapsed = useSessionElapsed(connectionState === "live");
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-ink pb-5">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(124,245,197,.07),transparent_32%),radial-gradient(circle_at_92%_18%,rgba(156,140,255,.06),transparent_26%),radial-gradient(circle_at_8%_82%,rgba(156,140,255,.035),transparent_28%)]" />
-      <div className="page-noise pointer-events-none fixed inset-0 opacity-[0.18]" />
-
+    <main className="relative min-h-screen overflow-x-hidden bg-ink pb-5">
       <header className="relative z-10 mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-5 py-4 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/" className="group flex shrink-0 items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-xl border border-mint/15 bg-gradient-to-br from-mint/[0.12] to-violet/[0.08] transition group-hover:border-mint/30">
-              <AudioLines size={14} className="text-mint" />
-            </span>
-            <span className="text-[15px] font-bold tracking-[-0.02em] text-white">
-              echo<span className="text-mint">panel</span>
-            </span>
+            <BrandLockup />
           </Link>
           <span className="hidden h-4 w-px bg-white/[0.08] sm:block" />
           <span className="hidden truncate text-[10px] uppercase tracking-[0.16em] text-slate-600 sm:block">
@@ -1013,6 +996,8 @@ export function LiveInterviewView({
           onToggleMute={onToggleMute}
           onTextInputChange={onTextInputChange}
           onManualSubmit={onManualSubmit}
+          voiceRtcRef={voiceRtcRef}
+          voiceMicRef={voiceMicRef}
         />
         <InsightRail interviewState={interviewState} diagnostics={diagnostics} />
       </div>

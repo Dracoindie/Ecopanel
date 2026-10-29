@@ -22,7 +22,7 @@ const stageTone: Record<ApplicationStage, string> = {
 
 function Stat({ label, value, detail, href }: { label: string; value: number; detail: string; href: string }) {
   return (
-    <Link href={href} className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-4 transition hover:border-white/[0.14]">
+    <Link href={href} className="rounded-2xl border border-white/[0.07] bg-card/80 p-4 transition hover:border-white/[0.14]">
       <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
       <p className="mt-1 text-[9px] text-slate-600">{detail}</p>
@@ -59,8 +59,8 @@ export function DatabaseDashboard({
           <Link href="/careers" className="inline-flex items-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.03] px-3.5 py-2.5 text-xs font-medium text-slate-300 transition hover:text-white">
             Public careers
           </Link>
-          <Link href="/hr/applicants" className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink transition hover:bg-[#9bf8d5]">
-            Review applicants <ArrowRight size={13} />
+          <Link href="/hr/applicants" className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink transition hover:bg-mint-hover">
+            Review applicants
           </Link>
         </div>
       </div>
@@ -80,13 +80,13 @@ export function DatabaseDashboard({
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
-        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-card/80">
           <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
             <div>
               <h2 className="text-sm font-semibold text-white">Recent applications</h2>
               <p className="mt-1 text-[10px] text-slate-500">Newest applications stored for {organizationName}.</p>
             </div>
-            <Link href="/hr/applicants" className="inline-flex items-center gap-1 text-[10px] font-medium text-mint hover:text-white">Pipeline <ArrowRight size={11} /></Link>
+            <Link href="/hr/applicants" className="inline-flex items-center gap-1 text-[10px] font-medium text-mint hover:text-white">Pipeline</Link>
           </div>
           <div className="overflow-x-auto">
             <table className="hr-table w-full min-w-[600px]">
@@ -116,7 +116,7 @@ export function DatabaseDashboard({
           </div>
         </section>
 
-        <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+        <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
           <div className="flex items-center justify-between gap-3">
             <div><h2 className="text-sm font-semibold text-white">Pipeline health</h2><p className="mt-1 text-[10px] text-slate-500">Persisted stage distribution</p></div>
             <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[9px] text-slate-500">6 stages</span>

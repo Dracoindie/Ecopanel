@@ -78,7 +78,7 @@ export function EmailActivityClient() {
         <span className="inline-flex items-center gap-1.5 rounded-lg border border-violet/10 bg-violet/[0.03] px-2.5 py-1.5 text-violet-200/70">{stats.drafts} drafts</span>
       </div>
 
-      <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+      <section className="rounded-2xl border border-white/[0.07] bg-card/80">
         <div className="grid gap-2 border-b border-white/[0.06] p-4 md:grid-cols-2 xl:grid-cols-[1fr_135px_155px_175px_120px_auto]">
           <div className="relative">
             <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" />

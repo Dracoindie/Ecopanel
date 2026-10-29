@@ -135,7 +135,7 @@ export function DatabaseInterviewDetail({ interviewId }: { interviewId: string }
     <div className="space-y-5">
       <Link href="/hr/schedule" className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-500 transition hover:text-white"><ArrowLeft size={12} /> Schedule & calendar</Link>
 
-      <section className="rounded-2xl border border-white/[0.08] bg-[#0a111e]/90 p-5 sm:p-6">
+      <section className="rounded-2xl border border-white/[0.08] bg-card/90 p-5 sm:p-6">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -182,7 +182,7 @@ export function DatabaseInterviewDetail({ interviewId }: { interviewId: string }
 
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <h2 className="text-sm font-semibold text-white">Session details</h2>
             <dl className="mt-4 grid gap-4 text-[10px] sm:grid-cols-2">
               <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3.5"><dt className="text-slate-600">Date</dt><dd className="mt-1 text-xs font-medium text-slate-200">{formatDate(formatZonedDate(interview.scheduledAt, interview.timezone))}</dd></div>
@@ -196,7 +196,7 @@ export function DatabaseInterviewDetail({ interviewId }: { interviewId: string }
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-white">Assessment & report</h2>
@@ -220,8 +220,8 @@ export function DatabaseInterviewDetail({ interviewId }: { interviewId: string }
                 <div className="grid gap-3 sm:grid-cols-2">
                   {dimensions.map(([key, value]) => (
                     <div key={key} className="rounded-xl border border-white/[0.06] bg-black/10 p-3">
-                      <div className="flex items-center justify-between gap-2 text-[9px]"><span className="text-slate-500">{DIMENSION_LABELS[key] ?? key}</span><span className="text-slate-300">{value.score.toFixed(1)}</span></div>
-                      <div className="mt-2"><ProgressBar value={value.score * 10} /></div>
+                      <div className="flex items-center justify-between gap-2 text-[9px]"><span className="text-slate-500">{DIMENSION_LABELS[key] ?? key}</span><span className="text-slate-300">{typeof value.score === "number" ? value.score.toFixed(1) : "Insufficient evidence"}</span></div>
+                      <div className="mt-2"><ProgressBar value={typeof value.score === "number" ? value.score * 10 : 0} /></div>
                     </div>
                   ))}
                 </div>
@@ -245,7 +245,7 @@ export function DatabaseInterviewDetail({ interviewId }: { interviewId: string }
         </div>
 
         <aside className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex items-center gap-2.5">
               <Avatar name={candidate.name} tone="violet" />
               <div className="min-w-0">
@@ -262,7 +262,7 @@ export function DatabaseInterviewDetail({ interviewId }: { interviewId: string }
 
           <CalendarSyncPanel sync={interview.calendarSync ?? null} onRetried={() => { void load(); }} />
 
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/60 p-4">
+          <div className="rounded-2xl border border-white/[0.07] bg-card/60 p-4">
             <p className="text-[10px] font-semibold text-slate-300">Reminder</p>
             <p className="mt-2 text-[9px] leading-5 text-slate-600">Scheduling, status changes, and linked assessments are recorded as application events. Email delivery and calendar synchronization are recorded separately and are not implied by scheduling alone.</p>
           </div>

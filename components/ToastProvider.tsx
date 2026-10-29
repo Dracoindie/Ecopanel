@@ -47,7 +47,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   ? "border-mint/20 bg-[#0d211e]/95 text-mint"
                   : item.tone === "error"
                     ? "border-rose-400/20 bg-[#241015]/95 text-rose-200"
-                    : "border-sky-400/20 bg-[#0d1824]/95 text-sky-100"
+                    : "border-sky-400/20 bg-card/95 text-sky-100"
               }`}
             >
               <Icon size={16} className="mt-0.5 shrink-0" />

@@ -52,7 +52,7 @@ export function CalendarSyncPanel({
 
   if (!sync) {
     return (
-      <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+      <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
         <h2 className="text-sm font-semibold text-white">Google Calendar</h2>
         <p className="mt-2 text-[10px] leading-5 text-slate-500">
           No calendar sync has been requested for this interview. Connect an organization calendar and reschedule the interview to add it.
@@ -81,7 +81,7 @@ export function CalendarSyncPanel({
   const retryable = sync.canRetry && (!sync.failureCode || !CONFIG_CODES.has(sync.failureCode));
 
   return (
-    <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+    <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-white">Google Calendar</h2>
         <CalendarSyncBadge sync={sync} />

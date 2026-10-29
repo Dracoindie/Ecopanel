@@ -62,7 +62,7 @@ function DemoInterviewReportPage() {
         This is a seeded demo assessment, not an actual AI-generated evaluation. The report is included to demonstrate the future report UI and evidence model.
       </DemoBanner>
 
-      <section className="rounded-3xl border border-white/[0.08] bg-[#0a111e]/90 p-6 sm:p-8">
+      <section className="rounded-3xl border border-white/[0.08] bg-card/90 p-6 sm:p-8">
         <div className="flex flex-col justify-between gap-6 border-b border-white/[0.07] pb-6 md:flex-row md:items-start">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -92,7 +92,7 @@ function DemoInterviewReportPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-6">
+      <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-6">
         <div className="flex items-center gap-2"><Sparkles size={14} className="text-violet-200" /><h2 className="text-sm font-semibold text-white">Competency evidence</h2></div>
         <div className="mt-5 space-y-5">
           {(Object.keys(labels) as Array<keyof typeof labels>).map(key => {
@@ -123,7 +123,7 @@ function DemoInterviewReportPage() {
       </div>
 
       <div className="flex flex-wrap gap-2 print:hidden">
-        <Link href={`/hr/applicants/${interview.applicationId}`} className="inline-flex items-center gap-2 rounded-xl bg-mint px-4 py-2.5 text-xs font-semibold text-ink">Open candidate profile <ArrowRight size={13} /></Link>
+        <Link href={`/hr/applicants/${interview.applicationId}`} className="inline-flex items-center gap-2 rounded-xl bg-mint px-4 py-2.5 text-xs font-semibold text-ink">Open candidate profile</Link>
         <Link href={`/hr/interviews/${interview.id}`} className={secondaryButton}><CalendarDays size={13} /> Interview details</Link>
       </div>
     </div>

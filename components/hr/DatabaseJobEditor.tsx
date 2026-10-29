@@ -154,7 +154,7 @@ export function DatabaseJobEditor({ jobId }: { jobId?: string }) {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
         <div className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <h2 className="text-sm font-semibold text-white">Role essentials</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block sm:col-span-2">
@@ -193,7 +193,7 @@ export function DatabaseJobEditor({ jobId }: { jobId?: string }) {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <h2 className="text-sm font-semibold text-white">Public role copy</h2>
             <div className="mt-4 space-y-4">
               <label className="block">
@@ -222,11 +222,11 @@ export function DatabaseJobEditor({ jobId }: { jobId?: string }) {
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <h2 className="text-sm font-semibold text-white">Publication</h2>
             <p className="mt-1 text-[10px] leading-4 text-slate-500">Control whether the role is visible on the public careers site.</p>
             <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/[0.07] bg-black/10 p-3.5">
-              <input type="checkbox" checked={form.publicVisible} onChange={event => setField("publicVisible", event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#7cf5c5]" />
+              <input type="checkbox" checked={form.publicVisible} onChange={event => setField("publicVisible", event.target.checked)} className="mt-0.5 h-4 w-4 accent-mint" />
               <span>
                 <span className="block text-[11px] font-medium text-slate-300">Public visibility</span>
                 <span className="mt-1 block text-[9px] leading-4 text-slate-600">When published, candidates can find this role at /careers.</span>
@@ -250,7 +250,7 @@ export function DatabaseJobEditor({ jobId }: { jobId?: string }) {
               </button>
             </div>
           </section>
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/50 p-4">
+          <div className="rounded-2xl border border-white/[0.07] bg-card/50 p-4">
             <p className="text-[10px] font-semibold text-slate-300">Publishing checklist</p>
             <div className="mt-2 space-y-1.5 text-[9px] text-slate-600">
               <p>• Clear role title and location</p>

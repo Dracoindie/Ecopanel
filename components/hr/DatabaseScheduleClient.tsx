@@ -154,7 +154,7 @@ export function DatabaseScheduleClient() {
               <button onClick={() => setView("calendar")} className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition", view === "calendar" ? "bg-white/[0.08] text-white" : "text-slate-500 hover:text-white")}><CalendarDays size={11} /> Calendar</button>
               <button onClick={() => setView("list")} className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition", view === "list" ? "bg-white/[0.08] text-white" : "text-slate-500 hover:text-white")}><List size={11} /> List</button>
             </div>
-            <button onClick={() => setScheduleOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink transition hover:bg-[#9bf8d5]"><CalendarPlus size={13} /> Schedule</button>
+            <button onClick={() => setScheduleOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink transition hover:bg-mint-hover"><CalendarPlus size={13} /> Schedule</button>
           </>
         }
       />
@@ -171,7 +171,7 @@ export function DatabaseScheduleClient() {
 
       {view === "calendar" ? (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_355px]">
-          <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+          <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-card/80">
             <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
               <div>
                 <h2 className="text-sm font-semibold text-white">{monthLabel(year, month)}</h2>
@@ -225,7 +225,7 @@ export function DatabaseScheduleClient() {
           </section>
 
           <aside className="space-y-4">
-            <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+            <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-card/80">
               <div className="border-b border-white/[0.06] px-5 py-4">
                 <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">Selected day</p>
                 <h2 className="mt-1 text-sm font-semibold text-white">{formatDate(selectedDate)}</h2>
@@ -265,15 +265,15 @@ export function DatabaseScheduleClient() {
                 )}
               </div>
             </section>
-            <div className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/60 p-4">
+            <div className="rounded-2xl border border-white/[0.07] bg-card/60 p-4">
               <div className="flex items-center gap-2 text-[10px] font-medium text-slate-300"><Video size={12} className="text-violet-200" /> Interview rooms</div>
               <p className="mt-2 text-[9px] leading-5 text-slate-600">Sessions link to persisted interview details and any assessment explicitly saved for them. Live voice rooms stay on the existing EchoPanel setup flow.</p>
-              <Link href="/setup" className="mt-3 flex items-center justify-between rounded-lg border border-white/[0.07] px-2.5 py-2 text-[9px] text-slate-400 hover:text-white">Open voice setup <ArrowRight size={10} /></Link>
+              <Link href="/setup" className="mt-3 flex items-center justify-between rounded-lg border border-white/[0.07] px-2.5 py-2 text-[9px] text-slate-400 hover:text-white">Open voice setup</Link>
             </div>
           </aside>
         </div>
       ) : (
-        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-card/80">
           <div className="flex flex-col justify-between gap-3 border-b border-white/[0.06] px-4 py-3 sm:flex-row sm:items-center">
             <div className="flex rounded-lg border border-white/[0.07] bg-black/10 p-1">
               {(["Upcoming", "Past", "All"] as ListFilter[]).map(item => (

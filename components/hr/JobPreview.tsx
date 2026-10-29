@@ -5,8 +5,8 @@ import type { NewJobInput } from "@/lib/domain";
 
 export function JobPreview({ job }: { job: NewJobInput }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#060910]">
-      <div className="border-b border-white/[0.07] bg-[#070b12] px-5 py-3">
+    <div className="overflow-hidden rounded-2xl border border-white/[0.09] bg-ink">
+      <div className="border-b border-white/[0.07] bg-ink px-5 py-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold tracking-[-0.03em] text-white">nexora</span>
           <span className="mt-[-6px] h-1 w-1 rounded-full bg-violet" />

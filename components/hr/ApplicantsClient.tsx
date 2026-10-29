@@ -97,7 +97,7 @@ export function ApplicantsClient() {
         title="Applicants"
         description="Search, filter, and progress candidates through the demo hiring pipeline. Status changes update every connected view."
         actions={
-          <Link href="/hr/email/compose" className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink transition hover:bg-[#9bf8d5]">
+          <Link href="/hr/email/compose" className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink transition hover:bg-mint-hover">
             <Mail size={13} /> Compose email
           </Link>
         }
@@ -113,7 +113,7 @@ export function ApplicantsClient() {
               className={`rounded-xl border px-4 py-3 text-left transition ${
                 active
                   ? "border-mint/25 bg-mint/[0.06] shadow-[0_0_30px_rgba(124,245,197,.04)]"
-                  : "border-white/[0.07] bg-[#0a111e]/70 hover:border-white/[0.14]"
+                  : "border-white/[0.07] bg-card/70 hover:border-white/[0.14]"
               }`}
             >
               <p className={`text-[9px] font-semibold uppercase tracking-[0.1em] ${active ? "text-mint" : "text-slate-500"}`}>{item}</p>
@@ -123,7 +123,7 @@ export function ApplicantsClient() {
         })}
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+      <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-card/80">
         <div className="border-b border-white/[0.06] p-4">
           <div className="grid gap-2.5 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
             <label className="relative block">
@@ -183,7 +183,7 @@ export function ApplicantsClient() {
               <table className="hr-table w-full min-w-[880px]">
                 <thead className="border-b border-white/[0.06] bg-white/[0.015] text-left text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-600">
                   <tr>
-                    <th className="w-10 px-4 py-3"><input type="checkbox" checked={allPageSelected} onChange={toggleAll} aria-label="Select all applicants on this page" className="h-3.5 w-3.5 accent-[#7cf5c5]" /></th>
+                    <th className="w-10 px-4 py-3"><input type="checkbox" checked={allPageSelected} onChange={toggleAll} aria-label="Select all applicants on this page" className="h-3.5 w-3.5 accent-mint" /></th>
                     <th className="px-3 py-3">Candidate</th>
                     <th className="px-3 py-3">Role</th>
                     <th className="px-3 py-3">Applied</th>
@@ -195,7 +195,7 @@ export function ApplicantsClient() {
                 <tbody className="divide-y divide-white/[0.045]">
                   {pageRecords.map(record => (
                     <tr key={record.application.id}>
-                      <td className="px-4 py-3.5"><input type="checkbox" checked={selected.includes(record.application.id)} onChange={() => toggleOne(record.application.id)} aria-label={`Select ${record.candidate.name}`} className="h-3.5 w-3.5 accent-[#7cf5c5]" /></td>
+                      <td className="px-4 py-3.5"><input type="checkbox" checked={selected.includes(record.application.id)} onChange={() => toggleOne(record.application.id)} aria-label={`Select ${record.candidate.name}`} className="h-3.5 w-3.5 accent-mint" /></td>
                       <td className="px-3 py-3.5">
                         <Link href={`/hr/applicants/${record.application.id}`} className="group flex items-center gap-2.5">
                           <Avatar name={record.candidate.name} size="sm" tone={record.application.stage === "Selected" ? "mint" : "violet"} />

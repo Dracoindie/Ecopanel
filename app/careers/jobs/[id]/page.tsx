@@ -75,8 +75,8 @@ export default function PublicJobPage() {
       <main className="mx-auto flex min-h-[58vh] w-full max-w-[900px] flex-col items-center justify-center px-6 py-20 text-center">
         <h1 className="font-display text-3xl text-white">This role is temporarily unavailable.</h1>
         <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">{loadError}</p>
-        <Link href="/careers" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-[#090b10]">
-          Browse open roles <ArrowRight size={13} />
+        <Link href="/careers" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-ink">
+          Browse open roles
         </Link>
       </main>
     );
@@ -90,8 +90,8 @@ export default function PublicJobPage() {
         </span>
         <h1 className="font-display mt-5 text-3xl text-white">This role is not publicly available.</h1>
         <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">The position may have closed, or the link may belong to a private preview. Browse the current open roles to find another fit.</p>
-        <Link href="/careers" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-[#090b10]">
-          Browse open roles <ArrowRight size={13} />
+        <Link href="/careers" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-ink">
+          Browse open roles
         </Link>
       </main>
     );
@@ -110,7 +110,7 @@ export default function PublicJobPage() {
 
   return (
     <main>
-      <div className="border-b border-white/[0.055] bg-[#070a10]">
+      <div className="border-b border-white/[0.055] bg-ink">
         <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-10">
           <Link href="/careers#open-roles" className="inline-flex items-center gap-2 text-xs font-medium text-slate-500 transition hover:text-white">
             <ArrowLeft size={13} /> All open roles
@@ -142,7 +142,7 @@ export default function PublicJobPage() {
           </div>
 
           <aside className="lg:sticky lg:top-24 lg:self-start">
-            <div className="rounded-2xl border border-white/[0.1] bg-[#0a0e15]/90 p-5 shadow-2xl backdrop-blur">
+            <div className="rounded-2xl border border-white/[0.1] bg-card/90 p-5 shadow-2xl backdrop-blur">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Role snapshot</p>
                 <span className="inline-flex items-center gap-1.5 text-[9px] text-mint"><span className="h-1.5 w-1.5 rounded-full bg-mint" /> Open</span>
@@ -153,8 +153,8 @@ export default function PublicJobPage() {
                 <div className="flex justify-between gap-4"><dt className="text-slate-500">Type</dt><dd className="text-right font-medium text-slate-200">{job.employmentType}</dd></div>
                 <div className="flex justify-between gap-4"><dt className="text-slate-500">Posted</dt><dd className="text-right font-medium text-slate-200">{formatDate(job.publishedAt)}</dd></div>
               </dl>
-              <Link href={`/careers/apply/${job.id}`} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#090b10] transition hover:bg-slate-100">
-                Apply for this role <ArrowRight size={14} />
+              <Link href={`/careers/apply/${job.id}`} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-ink transition hover:bg-slate-100">
+                Apply for this role
               </Link>
               <button onClick={copyLink} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.09] px-4 py-2.5 text-xs font-medium text-slate-400 transition hover:border-white/20 hover:text-white">
                 <Clipboard size={12} /> Copy role link
@@ -199,7 +199,7 @@ export default function PublicJobPage() {
               Selected candidates take part in an adaptive voice conversation with EchoPanel. The experience includes live technical and product perspectives, a transcript reviewed by the hiring team, and a final human decision. If you need an alternative format or adjustment, tell us in your application.
             </p>
             <Link href="/demo" className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-mint transition hover:text-white">
-              Preview the interview demo <ArrowRight size={12} />
+              Preview the interview demo
             </Link>
           </div>
         </div>
@@ -235,14 +235,14 @@ export default function PublicJobPage() {
         </aside>
       </section>
 
-      <section className="border-t border-white/[0.055] bg-[#070a10]">
+      <section className="border-t border-white/[0.055] bg-ink">
         <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start justify-between gap-5 px-4 py-10 sm:px-6 md:flex-row md:items-center lg:px-10">
           <div>
             <p className="font-display text-2xl text-white">Ready to build what comes next?</p>
             <p className="mt-1 text-xs text-slate-500">The application takes about five minutes.</p>
           </div>
-          <Link href={`/careers/apply/${job.id}`} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#090b10] transition hover:bg-slate-100">
-            Apply for {job.title} <ArrowRight size={14} />
+          <Link href={`/careers/apply/${job.id}`} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-ink transition hover:bg-slate-100">
+            Apply for {job.title}
           </Link>
         </div>
       </section>

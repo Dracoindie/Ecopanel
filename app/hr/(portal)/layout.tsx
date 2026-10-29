@@ -10,13 +10,13 @@ export const dynamic = "force-dynamic";
 
 function AccessProblem({ title, detail }: { title: string; detail: string }) {
   return (
-    <main className="grid min-h-screen place-items-center bg-[#050a13] px-6 text-slate-200">
+    <main className="grid min-h-screen place-items-center bg-ink px-6 text-slate-200">
       <div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-white/[0.025] p-7 text-center">
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200/70">Recruiter access</p>
         <h1 className="mt-3 text-2xl font-semibold text-white">{title}</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">{detail}</p>
         <div className="mt-6 flex justify-center gap-3">
-          <Link href="/hr/login" className="rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-[#090b10]">Sign in</Link>
+          <Link href="/hr/login" className="rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-ink">Sign in</Link>
           <Link href="/careers" className="rounded-xl border border-white/[0.1] px-4 py-2.5 text-xs font-medium text-slate-300">Careers</Link>
         </div>
       </div>

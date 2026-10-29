@@ -127,7 +127,7 @@ export function DatabaseEmailSettingsClient() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5 sm:p-6">
+        <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-4">
             <div><h2 className="text-sm font-semibold text-white">Sender identity</h2><p className="mt-1 text-[10px] text-slate-500">Used for composer previews and persisted message records.</p></div>
             {saved ? <Badge tone="mint" dot>Saved</Badge> : <Badge tone="slate">PostgreSQL</Badge>}
@@ -158,7 +158,7 @@ export function DatabaseEmailSettingsClient() {
         </section>
 
         <aside className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <h2 className="text-sm font-semibold text-white">Provider status</h2>
             <div className="mt-4 space-y-3 text-[10px]">
               <div className="flex items-center justify-between gap-3"><span className="text-slate-500">Provider</span><span className={`inline-flex items-center gap-1.5 ${settings.providerConfigured ? "text-mint" : "text-amber-200/80"}`}>{settings.providerConfigured ? <CheckCircle2 size={11} /> : <ServerOff size={11} />} {settings.provider}</span></div>
@@ -173,7 +173,7 @@ export function DatabaseEmailSettingsClient() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/60 p-4">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/60 p-4">
             <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-300"><ShieldCheck size={12} className="text-mint" /> Safety boundary</div>
             <p className="mt-2 text-[9px] leading-5 text-slate-600">Settings are organization-scoped and require an HR session. No secrets are stored by this screen.</p>
           </section>

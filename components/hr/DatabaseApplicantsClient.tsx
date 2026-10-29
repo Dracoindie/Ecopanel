@@ -113,7 +113,7 @@ export function DatabaseApplicantsClient() {
               key={item}
               onClick={() => { setStage(active ? "All" : item); setPage(1); }}
               className={`rounded-xl border px-4 py-3 text-left transition ${
-                active ? "border-mint/25 bg-mint/[0.06] shadow-[0_0_30px_rgba(124,245,197,.04)]" : "border-white/[0.07] bg-[#0a111e]/70 hover:border-white/[0.14]"
+                active ? "border-mint/25 bg-mint/[0.06] shadow-[0_0_30px_rgba(124,245,197,.04)]" : "border-white/[0.07] bg-card/70 hover:border-white/[0.14]"
               }`}
             >
               <p className={`text-[9px] font-semibold uppercase tracking-[0.1em] ${active ? "text-mint" : "text-slate-500"}`}>{item}</p>
@@ -123,7 +123,7 @@ export function DatabaseApplicantsClient() {
         })}
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a111e]/80">
+      <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-card/80">
         <div className="border-b border-white/[0.06] p-4">
           <div className="grid gap-2.5 lg:grid-cols-[1.5fr_1fr_1fr]">
             <label className="relative block">

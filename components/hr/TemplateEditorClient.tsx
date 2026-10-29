@@ -95,7 +95,7 @@ export function TemplateEditorClient() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
         <div className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2"><Badge tone="violet">{template.category}</Badge><span className="font-mono text-[8px] text-slate-600">{template.id}</span></div>
               <div className="flex items-center gap-2 text-[8px] text-slate-600">{dirty ? <Badge tone="amber">Unsaved changes</Badge> : saved ? <Badge tone="mint">Saved this session</Badge> : `Updated ${formatDate(template.updatedAt)}`}</div>
@@ -136,7 +136,7 @@ export function TemplateEditorClient() {
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-          <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a111e]/90">
+          <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-card/90">
             <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3"><div className="flex items-center gap-2 text-[10px] font-semibold text-slate-300"><Eye size={12} className="text-violet-200" /> Live sample</div><Badge tone="amber">Demo</Badge></div>
             <div className="p-4">
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
@@ -151,7 +151,7 @@ export function TemplateEditorClient() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/60 p-4">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/60 p-4">
             <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-600"><Sparkles size={11} /> Template notes</div>
             <p className="mt-3 text-[10px] leading-5 text-slate-500">{template.description}</p>
             <div className="mt-3 flex flex-wrap gap-1.5"><Badge tone="slate"><Braces size={9} /> {TEMPLATE_PLACEHOLDERS.length} supported</Badge><Badge tone="slate"><Mail size={9} /> Simulated</Badge></div>

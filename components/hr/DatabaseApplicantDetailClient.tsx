@@ -183,7 +183,7 @@ export function DatabaseApplicantDetailClient() {
         </div>
       </div>
 
-      <section className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a111e]/90 p-5 sm:p-6">
+      <section className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-card/90 p-5 sm:p-6">
         <div className="relative flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
           <div className="flex items-start gap-4">
             <Avatar name={candidate.name} size="lg" tone="violet" />
@@ -221,7 +221,7 @@ export function DatabaseApplicantDetailClient() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_315px]">
         <div className="min-w-0 space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-white">Application details</h2>
@@ -247,7 +247,7 @@ export function DatabaseApplicantDetailClient() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-white">CV & links</h2>
@@ -287,7 +287,7 @@ export function DatabaseApplicantDetailClient() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-white">Private HR notes</h2>
@@ -312,7 +312,7 @@ export function DatabaseApplicantDetailClient() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <h2 className="text-sm font-semibold text-white">Application timeline</h2>
             <div className="mt-5 space-y-0">
               {application.history.map((item, index) => (
@@ -336,7 +336,7 @@ export function DatabaseApplicantDetailClient() {
         </div>
 
         <aside className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-4">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-4">
             <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">Snapshot</p>
             <dl className="mt-3 space-y-2.5 text-[10px]">
               <div className="flex justify-between gap-3"><dt className="text-slate-600">Stage</dt><dd><StageBadge stage={application.stage} /></dd></div>
@@ -346,10 +346,10 @@ export function DatabaseApplicantDetailClient() {
             </dl>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-4">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-4">
             <div className="flex items-center gap-2 text-[10px] font-medium text-slate-300"><ShieldCheck size={12} className="text-mint" /> Organization isolation</div>
             <p className="mt-2 text-[9px] leading-4 text-slate-600">Every application, note, and CV request is filtered by the signed-in user&apos;s organization membership.</p>
-            <Link href="/hr/applicants" className="mt-3 flex items-center justify-between rounded-lg border border-white/[0.07] px-2.5 py-2 text-[9px] text-slate-400 transition hover:text-white">Back to pipeline <ArrowRight size={10} /></Link>
+            <Link href="/hr/applicants" className="mt-3 flex items-center justify-between rounded-lg border border-white/[0.07] px-2.5 py-2 text-[9px] text-slate-400 transition hover:text-white">Back to pipeline</Link>
           </section>
 
           <section className="rounded-2xl border border-amber-300/10 bg-amber-300/[0.025] p-4">

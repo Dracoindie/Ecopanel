@@ -23,7 +23,7 @@ export function EmailDetailDialog({ email, onClose }: { email: EmailMessage | nu
         email ? (
           <>
             <button onClick={onClose} className={secondaryButton}>Close</button>
-            <Link href={`/hr/email/compose?candidate=${email.candidateId}${email.templateId ? `&template=${email.templateId}` : ""}`} className="inline-flex items-center gap-2 rounded-xl bg-mint px-4 py-2.5 text-xs font-semibold text-ink">Compose follow-up <ArrowRight size={13} /></Link>
+            <Link href={`/hr/email/compose?candidate=${email.candidateId}${email.templateId ? `&template=${email.templateId}` : ""}`} className="inline-flex items-center gap-2 rounded-xl bg-mint px-4 py-2.5 text-xs font-semibold text-ink">Compose follow-up</Link>
           </>
         ) : undefined
       }
@@ -70,7 +70,7 @@ export function EmailDetailDialog({ email, onClose }: { email: EmailMessage | nu
                   ? "This draft exists only in browser memory. It has not been sent."
                   : "This message is shown as sent for interface demonstration only. No mail provider was contacted and nobody received it."}
             </p>
-            <Link href={`/hr/applicants/${email.applicationId}`} className="mt-2 inline-flex items-center gap-1.5 text-[9px] text-amber-200/70 hover:text-white"><FileText size={10} /> Review candidate record <ArrowRight size={9} /></Link>
+            <Link href={`/hr/applicants/${email.applicationId}`} className="mt-2 inline-flex items-center gap-1.5 text-[9px] text-amber-200/70 hover:text-white"><FileText size={10} /> Review candidate record</Link>
           </div>
         </div>
       )}

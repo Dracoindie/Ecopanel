@@ -138,7 +138,7 @@ export function DatabaseTemplateEditor({ templateId }: { templateId: string }) {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
         <div className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2"><Badge tone="violet">{category}</Badge>{template && <span className="font-mono text-[8px] text-slate-600">{template.id}</span>}</div>
               {dirty && <span className="text-[9px] text-amber-200/70">Unsaved changes</span>}
@@ -165,7 +165,7 @@ export function DatabaseTemplateEditor({ templateId }: { templateId: string }) {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-semibold text-white">Message body</h2>
               <span className="inline-flex items-center gap-1.5 text-[9px] text-slate-600"><Braces size={10} /> {variables.length} placeholders</span>
@@ -179,7 +179,7 @@ export function DatabaseTemplateEditor({ templateId }: { templateId: string }) {
         </div>
 
         <aside className="space-y-4">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0a111e]/80 p-5">
+          <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
             <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-300"><Eye size={12} /> Live preview</div>
             <p className="mt-1 text-[8px] text-slate-600">{sample ? `Using a real application sample: ${sample.candidate.name}.` : "No application sample is available; unknown placeholders remain visible."}</p>
             <div className="mt-4 rounded-xl border border-white/[0.06] bg-black/10 p-4">
