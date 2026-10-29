@@ -4,7 +4,8 @@
 
 .DESCRIPTION
   Checks Docker, the Postgres and ClamAV containers, the 3401 server (readiness and
-  which build it serves), the Tailscale funnel, the public URL, the env keys the demo
+  which build it serves), the cv/email/assessment workers (exactly one of each),
+  the Tailscale funnel, the public URL, the env keys the demo
   needs (names only), and that no Agora session, queued email or pending job is left
   over. Changes nothing. Never prints a secret: env values are only tested for
   presence, except EMAIL_MODE / provider names, which are not secret.
@@ -137,6 +138,21 @@ foreach ($dir in ".next-live", ".next-live-h9v") {
   if ((Get-Http "http://127.0.0.1:$Port/_next/static/$buildId/_buildManifest.js" 5).Status -eq 200) { $served = "$dir ($buildId)"; break }
 }
 Add-Check "Build served" ([bool]$served) $(if ($served) { $served } else { "could not identify the served build" })
+
+# 5b. Background workers: exactly one of each (see scripts/demo-workers.ps1).
+. (Join-Path $PSScriptRoot "demo-workers.ps1")
+$processes = @(Get-CimInstance Win32_Process)
+$missing = @()
+$duplicated = @()
+foreach ($worker in $DemoWorkers) {
+  $count = @(Get-DemoWorkerRoots $worker.Name $processes).Count
+  if ($count -eq 0) { $missing += $worker.Name } elseif ($count -gt 1) { $duplicated += "$($worker.Name) x$count" }
+}
+$problems = @()
+if ($missing.Count) { $problems += "not running: $($missing -join ', ')" }
+if ($duplicated.Count) { $problems += "duplicate: $($duplicated -join ', ')" }
+$workerDetail = if ($problems.Count -eq 0) { (($DemoWorkers | ForEach-Object { $_.Name }) -join ", ") + " running" } else { $problems -join "; " }
+Add-Check "Workers" ($problems.Count -eq 0) $workerDetail
 
 # 6. Tailscale funnel on, proxying to 3401, and matching APP_PUBLIC_URL.
 $tailscale = (Get-Command tailscale -ErrorAction SilentlyContinue).Source

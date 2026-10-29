@@ -14,7 +14,8 @@ import {
 import { describeError, logError, logInfo, logWarn } from "@/lib/server/logger";
 
 // Options: --env-file <path> loads that file instead of .env.local (e.g. .env.live.local);
-// --job <CvScanJob id> scans only that job once, then exits.
+// --job <CvScanJob id> scans only that job once, then exits;
+// --no-backfill never enqueues scan jobs for older CVs, so only jobs created at upload are processed.
 function argValue(name: string) {
   const index = process.argv.indexOf(name);
   const value = index >= 0 ? process.argv[index + 1] : undefined;
@@ -23,6 +24,7 @@ function argValue(name: string) {
 }
 const envFile = argValue("--env-file");
 const onlyJobId = argValue("--job");
+const backfillEnabled = !process.argv.includes("--no-backfill");
 
 if (process.env.CV_WORKER_SKIP_ENV_FILE !== "true") {
   if (envFile) {
@@ -91,11 +93,13 @@ async function loop() {
     return;
   }
 
-  try {
-    const backfill = await enqueueMissingScanJobs(prisma);
-    if (backfill.enqueued > 0) logInfo("Missing CV scan jobs enqueued at startup", backfill);
-  } catch (error) {
-    logWarn("Could not backfill missing CV scan jobs at startup", { workerId, error });
+  if (backfillEnabled) {
+    try {
+      const backfill = await enqueueMissingScanJobs(prisma);
+      if (backfill.enqueued > 0) logInfo("Missing CV scan jobs enqueued at startup", backfill);
+    } catch (error) {
+      logWarn("Could not backfill missing CV scan jobs at startup", { workerId, error });
+    }
   }
 
   if (onlyJobId) {
@@ -118,8 +122,10 @@ async function loop() {
         lastCleanupAt = Date.now();
         const cleanup = await cleanupRateLimitBuckets(prisma);
         if (cleanup.deleted > 0) logInfo("Expired rate-limit buckets removed", { deleted: cleanup.deleted });
-        const backfill = await enqueueMissingScanJobs(prisma);
-        if (backfill.enqueued > 0) logInfo("Missing CV scan jobs enqueued", backfill);
+        if (backfillEnabled) {
+          const backfill = await enqueueMissingScanJobs(prisma);
+          if (backfill.enqueued > 0) logInfo("Missing CV scan jobs enqueued", backfill);
+        }
       }
 
       const result = await runScanWorkerOnce({

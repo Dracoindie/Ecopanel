@@ -9,10 +9,13 @@
   3. Turns the Tailscale funnel on for 3401 if it is not already.
   4. Starts the 3401 server with scripts/start-live.ps1 unless something already
      listens on 3401, then waits for /api/health/ready.
-  5. Runs scripts/demo-check.ps1 and exits with its code (0 = READY).
+  5. Starts the cv, email and assessment workers in the background (logs in
+     scratchpad/worker-<name>.log), only when .env.live.local targets ecopanel_test
+     with EMAIL_MODE=test. See scripts/demo-workers.ps1.
+  6. Runs scripts/demo-check.ps1 and exits with its code (0 = READY).
 
   Safe to run repeatedly: every step is skipped when already done, so it never
-  starts a second server, container or funnel. Never prints a secret.
+  starts a second server, worker, container or funnel. Never prints a secret.
 
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/demo-up.ps1
@@ -95,7 +98,42 @@ if ($listener) {
 $deadline = (Get-Date).AddSeconds(60)
 while (-not (Test-Ready) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
 
-# 5. Verdict
+# 5. Background workers: one of each, never a second.
+. (Join-Path $PSScriptRoot "demo-workers.ps1")
+$EnvFile = Join-Path $Root ".env.live.local"
+$envVars = @{}
+if (Test-Path $EnvFile) {
+  foreach ($line in Get-Content -LiteralPath $EnvFile -Encoding UTF8) {
+    if ($line -match '^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$') { $envVars[$Matches[1]] = $Matches[2] -replace '^["'']|["'']$', '' }
+  }
+}
+$dbName = try { ([System.Uri]$envVars["DATABASE_URL"]).AbsolutePath.TrimStart("/") } catch { "" }
+if ($dbName -ne "ecopanel_test" -or $envVars["EMAIL_MODE"] -ne "test") {
+  Step "Workers NOT started: .env.live.local must target ecopanel_test with EMAIL_MODE=test."
+} else {
+  # Workers load .env.live.local themselves; drop any inherited copies of its keys so the file always wins.
+  foreach ($key in $envVars.Keys) { Remove-Item -Path "Env:$key" -ErrorAction SilentlyContinue }
+  $started = @()
+  $processes = @(Get-CimInstance Win32_Process)
+  foreach ($worker in $DemoWorkers) {
+    $roots = @(Get-DemoWorkerRoots $worker.Name $processes)
+    if ($roots.Count -gt 0) { Step "$($worker.Name) worker already running (pid $($roots[0].ProcessId)); not starting another."; continue }
+    $log = Join-Path $Root "scratchpad\worker-$($worker.Name).log"
+    $command = "npx tsx $($worker.Script) --env-file .env.live.local $($worker.Extra) >> `"$log`" 2>&1"
+    Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $command -WorkingDirectory $Root -WindowStyle Hidden | Out-Null
+    $started += $worker.Name
+    Step "Started $($worker.Name) worker; log: scratchpad/worker-$($worker.Name).log"
+  }
+  if ($started.Count -gt 0) {
+    # A bad configuration makes a worker exit within seconds; report that here rather than later.
+    Start-Sleep -Seconds 10
+    $processes = @(Get-CimInstance Win32_Process)
+    $exited = @($started | Where-Object { (Get-DemoWorkerRoots $_ $processes).Count -eq 0 })
+    if ($exited.Count -gt 0) { Step "Exited right after start: $($exited -join ', ') (see scratchpad/worker-<name>.log)." }
+  }
+}
+
+# 6. Verdict
 Step "Running demo-check.ps1 ..."
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "demo-check.ps1")
 $code = $LASTEXITCODE
