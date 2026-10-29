@@ -3,6 +3,7 @@ name: ecopanel-phase2a
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in the env file}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the env file}
@@ -21,6 +22,7 @@ services:
 
   clamav:
     image: clamav/clamav:stable
+    restart: unless-stopped
     ports:
       - "127.0.0.1:3310:3310"
     volumes:
