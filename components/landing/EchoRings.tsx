@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { MutableRefObject } from "react";
 import { INTERVIEWERS } from "@/components/PanelTrio";
 
-type Ripple = { ring: number; born: number };
+type Ripple = { ring: number; born: number; soft?: boolean };
 
 const DRAW_IN_MS = 900;
 const TURN_MS = 2600;
@@ -14,8 +15,10 @@ const RIPPLE_LIFE_MS = 2400;
  * (the active ring pulses and radiates), the cluster leans gently toward the cursor, and the rings
  * draw themselves in once on load. 2D canvas, one requestAnimationFrame loop, paused when the tab
  * is hidden or the canvas is off screen; prefers-reduced-motion gets a single still frame.
+ * `echoRef` (optional) receives a function that sends one soft ripple through all three rings;
+ * the HR login calls it on keydown. It takes no arguments, so no input content ever reaches it.
  */
-export function EchoRings({ className }: { className?: string }) {
+export function EchoRings({ className, echoRef }: { className?: string; echoRef?: MutableRefObject<(() => void) | null> }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -74,11 +77,12 @@ export function EchoRings({ className }: { className?: string }) {
         const ripple = ripples[i];
         const age = (now - ripple.born) / RIPPLE_LIFE_MS;
         if (age >= 1) { ripples.splice(i, 1); continue; }
+        if (age < 0) continue; // staggered echo ripple not yet started
         const center = centers[ripple.ring];
         context.beginPath();
         context.arc(center.x, center.y, radius * (1 + age * 1.6), 0, Math.PI * 2);
         context.strokeStyle = INTERVIEWERS[ripple.ring].color;
-        context.globalAlpha = (1 - age) * 0.38;
+        context.globalAlpha = (1 - age) * (ripple.soft ? 0.24 : 0.38);
         context.lineWidth = 1.5;
         context.stroke();
       }
@@ -127,6 +131,17 @@ export function EchoRings({ className }: { className?: string }) {
       pointer.x = Math.max(-1, Math.min(1, dx)) * 18;
       pointer.y = Math.max(-1, Math.min(1, dy)) * 18;
     };
+    // Keystroke echo: one soft ripple per ring, at most every 90 ms so fast typing stays calm.
+    let lastEcho = 0;
+    const echo = () => {
+      const now = performance.now();
+      if (reduced || now - lastEcho < 90) return;
+      lastEcho = now;
+      for (let ring = 0; ring < 3; ring += 1) ripples.push({ ring, born: now + ring * 70, soft: true });
+      resume();
+    };
+    if (echoRef) echoRef.current = echo;
+
     const onVisibility = () => { if (document.hidden) { cancelAnimationFrame(frame); frame = 0; } else resume(); };
     const observer = new IntersectionObserver(entries => {
       visible = entries.some(entry => entry.isIntersecting);
@@ -145,13 +160,14 @@ export function EchoRings({ className }: { className?: string }) {
     else resume();
 
     return () => {
+      if (echoRef?.current === echo) echoRef.current = null;
       cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pointermove", onPointer);
     };
-  }, []);
+  }, [echoRef]);
 
   return (
     <canvas

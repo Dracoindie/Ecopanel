@@ -10,6 +10,9 @@ import {
   Printer,
   TriangleAlert
 } from "lucide-react";
+import type { CSSProperties } from "react";
+import { interviewerColor } from "@/components/PanelTrio";
+import { CountUp } from "@/components/hr/CountUp";
 import { Badge, EmptyState, ProgressBar } from "@/components/ui";
 import { assessmentStatusMessage } from "@/lib/assessment-status";
 import type { Candidate, Interview, Job } from "@/lib/domain";
@@ -48,6 +51,16 @@ const LABELS: Record<string, string> = {
   problemSolving: "Problem solving",
   adaptability: "Adaptability"
 };
+
+// Evidence line colour: the interviewer whose focus the dimension belongs to; problem solving is shared, so neutral.
+const DIMENSION_INTERVIEWER: Record<string, string> = {
+  technical: "technical",
+  product: "product",
+  communication: "behavioural",
+  adaptability: "behavioural"
+};
+const NEUTRAL_LINE = "rgb(148 163 184 / .45)";
+const BAR_STEP_MS = 140;
 
 export function DatabaseInterviewReport({ interviewId }: { interviewId: string }) {
   const [detail, setDetail] = useState<DetailResponse | null>(null);
@@ -131,7 +144,7 @@ export function DatabaseInterviewReport({ interviewId }: { interviewId: string }
             <p className="mt-1 text-[10px] text-slate-600">Generated {formatDate(assessment.generatedAt)} · {interview.round} · Source {assessment.source}</p>
           </div>
           <div className="text-left md:text-right">
-            <p className="text-5xl font-semibold tracking-[-0.055em] text-white">{assessment.overallScore.toFixed(1)}</p>
+            <p className="text-5xl font-semibold tabular-nums tracking-[-0.055em] text-white"><CountUp value={assessment.overallScore} /></p>
             <p className="mt-1 text-[9px] uppercase tracking-[0.14em] text-amber-200/60">Score / 10</p>
           </div>
         </div>
@@ -142,14 +155,14 @@ export function DatabaseInterviewReport({ interviewId }: { interviewId: string }
         </div>
 
         <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {dimensionEntries.map(([key, value]) => (
+          {dimensionEntries.map(([key, value], index) => (
             <div key={key} className="rounded-xl border border-white/[0.06] bg-black/10 p-3.5">
               <p className="text-[9px] text-slate-500">{LABELS[key] ?? key}</p>
               <div className="mt-2 flex items-end justify-between gap-2">
                 <span className="text-lg font-semibold text-white">{typeof value.score === "number" ? value.score.toFixed(1) : "–"}</span>
                 <span className="text-[8px] text-slate-600">{Math.round(value.confidence * 100)}% conf.</span>
               </div>
-              <div className="mt-2"><ProgressBar value={typeof value.score === "number" ? value.score * 10 : 0} tone={value.score >= 8 ? "mint" : value.score >= 6 ? "violet" : "amber"} /></div>
+              <div className="mt-2"><ProgressBar value={typeof value.score === "number" ? value.score * 10 : 0} tone={value.score >= 8 ? "mint" : value.score >= 6 ? "violet" : "amber"} fillDelayMs={index * BAR_STEP_MS} /></div>
             </div>
           ))}
         </div>
@@ -182,13 +195,19 @@ export function DatabaseInterviewReport({ interviewId }: { interviewId: string }
       <section className="rounded-2xl border border-white/[0.07] bg-card/80 p-5">
         <h2 className="text-sm font-semibold text-white">Dimension evidence</h2>
         <div className="mt-4 space-y-4">
-          {dimensionEntries.map(([key, value]) => (
+          {dimensionEntries.map(([key, value], dimensionIndex) => (
             <div key={key} className="rounded-xl border border-white/[0.06] bg-black/10 p-4">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-[11px] font-semibold text-slate-200">{LABELS[key] ?? key}</h3>
                 <span className="text-[9px] text-slate-500">{typeof value.score === "number" ? `${value.score.toFixed(1)} / 10` : "Insufficient evidence"}</span>
               </div>
-              {value.evidence.length ? value.evidence.map((item, index) => <p key={`${item}-${index}`} className="mt-2 text-[10px] leading-5 text-slate-500">“{item}”</p>) : <p className="mt-2 text-[10px] text-slate-600">No evidence was persisted for this dimension.</p>}
+              {value.evidence.length ? value.evidence.map((item, index) => (
+                <p
+                  key={`${item}-${index}`}
+                  className="slide-in mt-2 border-l-2 pl-2.5 text-[10px] leading-5 text-slate-500"
+                  style={{ borderLeftColor: interviewerColor(DIMENSION_INTERVIEWER[key] ?? "") ?? NEUTRAL_LINE, "--d": `${dimensionIndex * 120 + index * 80}ms` } as CSSProperties}
+                >“{item}”</p>
+              )) : <p className="mt-2 text-[10px] text-slate-600">No evidence was persisted for this dimension.</p>}
             </div>
           ))}
         </div>

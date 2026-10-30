@@ -135,6 +135,23 @@ h1 { font-variation-settings: "wdth" 88; letter-spacing: -0.02em; }
 .rise { animation: rise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d, 0ms); }
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
 
+/* HR login: a short shake when the error message appears. */
+.shake { animation: shake .42s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes shake { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+
+/* Interview report: bars fill in turn, evidence slides in (delays via --d). */
+.bar-fill { transform-origin: left center; animation: bar-fill .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d, 0ms); }
+@keyframes bar-fill { from { transform: scaleX(0); } }
+.slide-in { animation: slide-in .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d, 0ms); }
+@keyframes slide-in { from { opacity: 0; transform: translateX(-12px); } }
+
+/* Interview complete: the three rings converge into one, then the check draws. */
+.converge { animation: converge .9s cubic-bezier(.6,0,.2,1) both; }
+@keyframes converge { from { transform: translate(var(--x), var(--y)); opacity: 1; } 75% { opacity: 1; } to { transform: translate(0, 0); opacity: 0; } }
+.converge-ring { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .6s ease-out .75s forwards; }
+.converge-check { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .4s ease-out 1.25s forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
 .scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgb(var(--c-slate-500) / .35) transparent; }
 .scrollbar-thin::-webkit-scrollbar { width: 5px; height: 5px; }
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
@@ -158,4 +175,5 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  .bar-fill, .slide-in, .converge-ring, .converge-check { animation-delay: 0ms !important; }
 }

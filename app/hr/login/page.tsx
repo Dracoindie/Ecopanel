@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import {
   ArrowLeft,
   Eye,
@@ -15,6 +15,7 @@ import {
 import { useIsDatabaseMode } from "@/components/AppModeProvider";
 import { BrandLockup } from "@/components/BrandMark";
 import { PanelTrio } from "@/components/PanelTrio";
+import { EchoRings } from "@/components/landing/EchoRings";
 import { authClient } from "@/lib/auth-client";
 import { inputClass, labelClass } from "@/lib/ui";
 
@@ -26,6 +27,9 @@ export default function HrLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Keystroke echo: keydown only triggers a ripple; the key and the field value are never read.
+  const echoRef = useRef<(() => void) | null>(null);
+  const sendEcho = () => echoRef.current?.();
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -63,8 +67,22 @@ export default function HrLoginPage() {
   };
 
   return (
-    <main className="theme-light relative flex min-h-screen overflow-hidden">
-      <section className="relative z-10 flex w-full flex-col px-5 py-6 sm:px-10 lg:w-[54%] lg:px-16 xl:px-24">
+    <main className="theme-light relative flex min-h-screen flex-col overflow-hidden md:flex-row">
+      {/* The panel: a small header band under 768 px, the left half on wider screens. */}
+      <section className="theme-dark relative flex h-32 shrink-0 items-center justify-center bg-ink md:h-auto md:w-[46%] md:flex-col md:p-12">
+        <EchoRings echoRef={echoRef} className="block h-full w-full max-w-[220px] md:aspect-square md:h-auto md:max-w-[420px]" />
+        <div className="hidden w-full max-w-[420px] md:block">
+          <h2 className="mt-6 text-[34px] font-semibold leading-[1.04] text-white lg:text-[40px]" style={{ fontVariationSettings: '"wdth" 82' }}>
+            Three interviewers. One clear hiring decision.
+          </h2>
+          <p className="mt-3 max-w-sm text-[15px] leading-7 text-slate-400">
+            Every live interview is run by a technical, a product and a behavioural interviewer. Their evidence lands here, ready for your review.
+          </p>
+          <PanelTrio compact className="mt-6" />
+        </div>
+      </section>
+
+      <section className="relative z-10 flex w-full flex-col px-5 py-6 sm:px-10 md:flex-1 lg:px-16 xl:px-24">
         <div className="flex items-center justify-between">
           <Link href="/" className="inline-flex items-center gap-2.5">
             <BrandLockup subtitle="Nexora Labs · Hiring" />
@@ -74,7 +92,7 @@ export default function HrLoginPage() {
           </Link>
         </div>
 
-        <div className="my-auto py-12">
+        <div className="my-auto py-8 md:py-12">
           <div className="mx-auto w-full max-w-[390px]">
             <p className="text-[13px] font-medium text-slate-500">{isDatabase ? "Recruiter workspace" : "Demo workspace"}</p>
             <h1 className="mt-2 text-[40px] font-semibold leading-[1.02] text-white">Welcome back.</h1>
@@ -93,6 +111,7 @@ export default function HrLoginPage() {
                     type="email"
                     value={email}
                     onChange={event => { setEmail(event.target.value); setError(""); }}
+                    onKeyDown={sendEcho}
                     className={`${inputClass} pl-9`}
                     placeholder="you@company.example"
                     autoComplete="email"
@@ -107,6 +126,7 @@ export default function HrLoginPage() {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={event => { setPassword(event.target.value); setError(""); }}
+                    onKeyDown={sendEcho}
                     className={`${inputClass} pl-9 pr-10`}
                     placeholder={isDatabase ? "Your password" : "Any 6+ characters"}
                     autoComplete="current-password"
@@ -117,7 +137,7 @@ export default function HrLoginPage() {
                 </div>
               </label>
 
-              {error && <p className="rounded-lg border border-rose-400/15 bg-rose-400/[0.04] px-3 py-2 text-[11px] text-rose-200">{error}</p>}
+              {error && <p className="shake rounded-lg border border-rose-400/15 bg-rose-400/[0.04] px-3 py-2 text-[11px] text-rose-200">{error}</p>}
 
               <div className="flex items-center justify-between gap-3">
                 <label className="flex items-center gap-2 text-[10px] text-slate-500">
@@ -154,18 +174,6 @@ export default function HrLoginPage() {
                 : "This is not production authentication. Database mode uses Better Auth and server-side authorization."}
             </p>
           </div>
-        </div>
-      </section>
-
-      <section className="theme-dark relative hidden flex-1 items-center justify-center bg-ink p-12 lg:flex">
-        <div className="relative w-full max-w-[460px]">
-          <PanelTrio />
-          <h2 className="mt-10 text-[44px] font-semibold leading-[1.02] text-white" style={{ fontVariationSettings: '"wdth" 82' }}>
-            Three interviewers. One clear hiring decision.
-          </h2>
-          <p className="mt-4 max-w-sm text-[15px] leading-7 text-slate-400">
-            Every live interview is run by a technical, a product and a behavioural interviewer. Their evidence lands here, ready for your review.
-          </p>
         </div>
       </section>
     </main>

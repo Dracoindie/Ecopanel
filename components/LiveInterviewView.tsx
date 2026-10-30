@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import type { MutableRefObject } from "react";
 import { BrandLockup } from "@/components/BrandMark";
+import { PanelComplete } from "@/components/live/PanelComplete";
 import { PanelVoice } from "@/components/live/PanelVoice";
 import { interviewerColor } from "@/components/PanelTrio";
 import type { AgentId, AgentStatus, SharedInterviewState } from "@/lib/types";
@@ -515,14 +516,18 @@ function Stage({
 
       <div className="relative z-10 flex flex-1 flex-col">
         <div className="flex flex-1 flex-col items-center justify-center px-5 py-8 text-center sm:py-10">
-          <PanelVoice
-            rtcRef={voiceRtcRef}
-            micRef={voiceMicRef}
-            live={isLive}
-            muted={muted}
-            activeSpeaker={interviewState.activeSpeaker}
-            agentStates={interviewState.agentStates}
-          />
+          {hasEnded ? (
+            <PanelComplete />
+          ) : (
+            <PanelVoice
+              rtcRef={voiceRtcRef}
+              micRef={voiceMicRef}
+              live={isLive}
+              muted={muted}
+              activeSpeaker={interviewState.activeSpeaker}
+              agentStates={interviewState.agentStates}
+            />
+          )}
           <span
             className={`mt-4 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-[12px] font-medium ${
               interviewState.activeSpeaker === "candidate"

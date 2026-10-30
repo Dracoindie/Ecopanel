@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowRight, Inbox, Loader2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { CSSProperties } from "react";
 import { cn } from "@/lib/cn";
 import type { ApplicationStage, EmailStatus, JobStatus } from "@/lib/domain";
 import { stageTone, emailTone } from "@/lib/demo-service";
@@ -299,11 +300,13 @@ export function ConfirmDialog({
   );
 }
 
-export function ProgressBar({ value, tone = "mint" }: { value: number; tone?: "mint" | "violet" | "amber" }) {
+/** `fillDelayMs` (optional) fills the bar in on mount after that delay. */
+export function ProgressBar({ value, tone = "mint", fillDelayMs }: { value: number; tone?: "mint" | "violet" | "amber"; fillDelayMs?: number }) {
   const colors = { mint: "bg-mint", violet: "bg-violet", amber: "bg-amber-300" };
+  const fill = fillDelayMs === undefined ? {} : { "--d": `${fillDelayMs}ms` } as CSSProperties;
   return (
     <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-      <div className={cn("h-full rounded-full transition-all", colors[tone])} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+      <div className={cn("h-full rounded-full transition-all", fillDelayMs !== undefined && "bar-fill", colors[tone])} style={{ ...fill, width: `${Math.max(0, Math.min(100, value))}%` }} />
     </div>
   );
 }
