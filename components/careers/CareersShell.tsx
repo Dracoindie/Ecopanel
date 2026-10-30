@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
+import { useIsDatabaseMode } from "@/components/AppModeProvider";
 import { cn } from "@/lib/cn";
 
 const links = [
@@ -65,6 +66,8 @@ export function CareersHeader() {
 }
 
 export function CareersFooter() {
+  const isDatabase = useIsDatabaseMode();
+
   return (
     <footer className="border-t border-white/[0.07] bg-ink">
       <div className="mx-auto grid w-full max-w-[1440px] gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_1fr_1fr] lg:px-10">
@@ -90,7 +93,7 @@ export function CareersFooter() {
           <div className="mt-3 space-y-2 text-xs text-slate-500">
             <Link href="/hr/login" className="block transition hover:text-white">EchoPanel talent portal</Link>
             <Link href="/" className="block transition hover:text-white">EchoPanel interview engine</Link>
-            <span className="block text-slate-600">Demo experience · no live email delivery</span>
+            {!isDatabase && <span className="block text-slate-600">Demo experience · no live email delivery</span>}
           </div>
         </div>
       </div>
