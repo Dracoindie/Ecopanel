@@ -36,36 +36,23 @@ $processes = @(Get-CimInstance Win32_Process)
 $left = @($DemoWorkers | Where-Object { (Get-DemoWorkerRoots $_.Name $processes).Count -gt 0 } | ForEach-Object { $_.Name })
 if ($left.Count -gt 0) { Write-Host "Still running: $($left -join ', ') worker." -ForegroundColor Red; $failed = $true }
 
-# 2. The 3401 server
-# Matches every link of the launch: cmd /c npx next start -p 3401, npx-cli.js, and ...\bin\next" start -p 3401.
-function Test-OurServer($Process) {
-  $line = "$($Process.CommandLine)"
-  return $line -match "next" -and $line -match "start -p $Port\b"
-}
-
-$listener = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $listener) {
-  Write-Host "3401 is not running."
-} else {
-  $process = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
-  if (-not $process -or -not (Test-OurServer $process)) {
-    Write-Host "REFUSED: port $Port is held by pid $($listener.OwningProcess) ($($process.Name)), which is not our Next.js server." -ForegroundColor Red
+# 2. The 3401 server, found by command line (the listener's owning pid is unreliable; see demo-workers.ps1).
+$roots = @(Get-LiveServerRoots $Port @(Get-CimInstance Win32_Process))
+if ($roots.Count -eq 0) {
+  if (Test-PortListening $Port) {
+    Write-Host "REFUSED: port $Port is in use, but not by our Next.js server (no 'next start -p $Port' process)." -ForegroundColor Red
     exit 1
   }
-  # Walk up through npx/cmd wrappers that belong to the same launch.
-  $top = $process
-  while ($true) {
-    $parent = Get-CimInstance Win32_Process -Filter "ProcessId=$($top.ParentProcessId)"
-    if (-not $parent -or -not (Test-OurServer $parent)) { break }
-    $top = $parent
-  }
-  taskkill /PID $top.ProcessId /T /F *> $null
+  Write-Host "3401 is not running."
+} else {
+  foreach ($root in $roots) { taskkill /PID $root.ProcessId /T /F *> $null }
   $stopped = $false
   for ($i = 0; $i -lt 20; $i++) {
-    if (-not (Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue)) { $stopped = $true; break }
+    if (-not (Test-PortListening $Port)) { $stopped = $true; break }
     Start-Sleep -Milliseconds 500
   }
-  if ($stopped) { Write-Host "Stopped 3401 (process tree from pid $($top.ProcessId))." }
+  $pids = ($roots | ForEach-Object { $_.ProcessId }) -join ', '
+  if ($stopped) { Write-Host "Stopped 3401 (process tree from pid $pids)." }
   else { Write-Host "3401 is still listening after 10 seconds." -ForegroundColor Red; $failed = $true }
 }
 

@@ -22,11 +22,16 @@
   If 3401 is serving anything else, the demo is stopped first (demo-down.ps1) and
   started again on that build.
 
+.PARAMETER Redesign
+  Serve .next-live-redesign (the first redesign build, before the login/report/
+  completion animations), stopping 3401 first if it serves anything else.
+
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/demo-up.ps1
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/demo-up.ps1 -Rollback
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/demo-up.ps1 -Redesign
 #>
-param([switch]$Rollback)
+param([switch]$Rollback, [switch]$Redesign)
 $ErrorActionPreference = "Continue"
 $ProgressPreference = "SilentlyContinue"
 $Root = Split-Path -Parent $PSScriptRoot
@@ -94,28 +99,26 @@ if (-not (Test-Path $tailscale)) {
 }
 
 # 4. The 3401 server: never start a second one.
-$listener = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($listener -and $Rollback) {
-  # Only the served build's manifest returns 200.
-  $finalId = (Get-Content (Join-Path $Root ".next-live-final\BUILD_ID") -Raw -ErrorAction SilentlyContinue)
-  $servingFinal = $false
-  if ($finalId) {
-    try { $servingFinal = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Uri "http://127.0.0.1:$Port/_next/static/$($finalId.Trim())/_buildManifest.js").StatusCode -eq 200 } catch { }
-  }
-  if ($servingFinal) {
-    Step "3401 already serves the rollback build .next-live-final."
+. (Join-Path $PSScriptRoot "demo-workers.ps1")
+if ($Rollback -and $Redesign) { Step "Choose one of -Rollback and -Redesign."; exit 1 }
+$ExpectedBuild = if ($Rollback) { ".next-live-final" } elseif ($Redesign) { ".next-live-redesign" } else { ".next-live" }
+$listening = Test-PortListening $Port
+if ($listening -and ($Rollback -or $Redesign)) {
+  if (Test-ServesBuild $Port $Root $ExpectedBuild) {
+    Step "3401 already serves $ExpectedBuild."
   } else {
-    Step "Rollback: stopping the current demo so 3401 can restart on .next-live-final ..."
+    Step "Stopping the current demo so 3401 can restart on $ExpectedBuild ..."
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "demo-down.ps1")
-    $listener = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue | Select-Object -First 1
+    $listening = Test-PortListening $Port
   }
 }
-if ($listener) {
-  Step "3401 already running (pid $($listener.OwningProcess)); not starting another."
+if ($listening) {
+  Step "3401 already running; not starting another."
 } else {
   $startArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $PSScriptRoot "start-live.ps1"))
   if ($Rollback) { $startArgs += "-Rollback" }
-  Step "Starting 3401 with start-live.ps1 $(if ($Rollback) { '-Rollback (.next-live-final)' }) ..."
+  if ($Redesign) { $startArgs += "-Redesign" }
+  Step "Starting 3401 with start-live.ps1 (build $ExpectedBuild) ..."
   & powershell @startArgs
   if ($LASTEXITCODE -ne 0) { Step "start-live.ps1 refused or failed (see above)." }
 }
@@ -123,7 +126,6 @@ $deadline = (Get-Date).AddSeconds(60)
 while (-not (Test-Ready) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
 
 # 5. Background workers: one of each, never a second.
-. (Join-Path $PSScriptRoot "demo-workers.ps1")
 $EnvFile = Join-Path $Root ".env.live.local"
 $envVars = @{}
 if (Test-Path $EnvFile) {
@@ -161,5 +163,10 @@ if ($dbName -ne "ecopanel_test" -or $envVars["EMAIL_MODE"] -ne "test") {
 Step "Running demo-check.ps1 ..."
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "demo-check.ps1")
 $code = $LASTEXITCODE
+# demo-check accepts either build; here the build must be the one asked for.
+if (-not (Test-ServesBuild $Port $Root $ExpectedBuild)) {
+  Write-Host "NOT READY: 3401 does not serve $ExpectedBuild. Run demo-down.ps1, then demo-up.ps1 again." -ForegroundColor Red
+  $code = 1
+}
 Write-Host ("demo-up finished in {0}s." -f [int]$clock.Elapsed.TotalSeconds)
 exit $code

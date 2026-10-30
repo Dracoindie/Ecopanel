@@ -23,6 +23,11 @@
   Groq and live interview working) instead of .next-live. Cannot be combined
   with -Build. The older .next-live-h9v (tag known-good-h9v) lacks email and Groq.
 
+.PARAMETER Redesign
+  Start from .next-live-redesign: a copy of the first redesign build (commit 961781e,
+  BUILD_ID 20ZCw-oRUSiIaijeYBBWU), from before the login/report/completion animations.
+  Cannot be combined with -Build or -Rollback.
+
 .PARAMETER EnvFile
   Environment file to load (default .env.live.local in the repository root).
 
@@ -30,8 +35,9 @@
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-live.ps1
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-live.ps1 -Build
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-live.ps1 -Rollback
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-live.ps1 -Redesign
 #>
-param([switch]$Build, [switch]$BuildOnly, [switch]$Rollback, [string]$EnvFile = "")
+param([switch]$Build, [switch]$BuildOnly, [switch]$Rollback, [switch]$Redesign, [string]$EnvFile = "")
 
 $ErrorActionPreference = "Stop"
 $Port = 3401
@@ -44,8 +50,10 @@ function Stop-WithError([string]$Message) {
 }
 
 if ($Build -and $Rollback) { Stop-WithError "-Rollback starts the known-good backup; it cannot be combined with -Build." }
+if ($Build -and $Redesign) { Stop-WithError "-Redesign starts the saved redesign build; it cannot be combined with -Build." }
+if ($Rollback -and $Redesign) { Stop-WithError "choose one of -Rollback and -Redesign." }
 if ($BuildOnly -and -not $Build) { Stop-WithError "-BuildOnly requires -Build." }
-$DistDir = if ($Rollback) { ".next-live-final" } else { ".next-live" }
+$DistDir = if ($Rollback) { ".next-live-final" } elseif ($Redesign) { ".next-live-redesign" } else { ".next-live" }
 
 # 1. Load the env file into this process only (values are never echoed).
 if (-not $EnvFile) { $EnvFile = Join-Path $Root ".env.live.local" }
@@ -76,7 +84,8 @@ function Invoke-Native([scriptblock]$Command) {
 $safeExit = Invoke-Native { & node scripts/assert-safe-db.mjs DATABASE_URL *> $null }
 if ($safeExit -ne 0) { Stop-WithError "scripts/assert-safe-db.mjs rejected DATABASE_URL." }
 
-if (Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue) {
+. (Join-Path $PSScriptRoot "demo-workers.ps1")
+if (Test-PortListening $Port) {
   Stop-WithError "port $Port is already in use. Stop the old 3401 server first."
 }
 
@@ -96,7 +105,7 @@ if ($BuildOnly) {
   Write-Host "Built $DistDir (BUILD_ID $(Get-Content (Join-Path $Root "$DistDir\BUILD_ID"))). Server not started (-BuildOnly)."
   exit 0
 }
-if (-not (Test-Path (Join-Path $Root "$DistDir\BUILD_ID"))) { Stop-WithError "$DistDir has no build. Run with -Build (or without -Rollback)." }
+if (-not (Test-Path (Join-Path $Root "$DistDir\BUILD_ID"))) { Stop-WithError "$DistDir has no build. Run with -Build (or without -Rollback/-Redesign)." }
 
 # 4. Start detached; output goes to the log file only.
 $LogDir = Join-Path $Root "scratchpad"
@@ -110,8 +119,7 @@ for ($i = 0; $i -lt 40; $i++) {
   try {
     $live = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri "http://127.0.0.1:$Port/api/health/live"
     if ($live.StatusCode -eq 200) {
-      $listener = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue | Select-Object -First 1
-      Write-Host "Started: http://127.0.0.1:$Port (server pid $($listener.OwningProcess), launcher pid $($process.Id)); log: scratchpad/server-$Port.log"
+      Write-Host "Started: http://127.0.0.1:$Port (launcher pid $($process.Id)); log: scratchpad/server-$Port.log"
       exit 0
     }
   } catch { }
