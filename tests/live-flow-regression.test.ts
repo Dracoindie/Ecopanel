@@ -4,6 +4,7 @@ import {
   createAnswerAccumulator,
   ANSWER_GRACE_MS,
   createAuthorizedSpeechLedger,
+  createInterruptGate,
   createRecentKeyTracker,
   createSerialTurnQueue,
   createSessionScope,
@@ -578,5 +579,69 @@ describe("Live Helpers — answer accumulator (2026-10-28 fragmented answers)", 
     advance(ANSWER_GRACE_MS * 2);
     expect(answers).toHaveLength(0);
     expect(acc.pending()).toBe(0);
+  });
+
+  // 2026-10-30: the toolkit keeps one history entry per Agora turn and overwrites its text when a
+  // later final arrives in the same turn. Keying by turn alone dropped the rest of the answer.
+  it("keeps a new final that arrives in the same Agora turn", () => {
+    const { acc, answers, advance } = harness();
+    expect(acc.addFinal({ text: "I built that ERP model.", key: "turn:10" })).toBe(true);
+    advance(600);
+    expect(acc.addFinal({ text: "It handled payroll for three hundred staff.", key: "turn:10" })).toBe(true);
+    advance(ANSWER_GRACE_MS);
+    expect(answers).toEqual([{ text: "I built that ERP model. It handled payroll for three hundred staff.", segments: 2 }]);
+  });
+
+  it("adds only the new words when the same turn's final grows cumulatively", () => {
+    const { acc, answers, advance } = harness();
+    acc.addFinal({ text: "I built that ERP model", key: "turn:10" });
+    expect(acc.addFinal({ text: "I built that ERP model for our finance team", key: "turn:10" })).toBe(true);
+    expect(acc.addFinal({ text: "I built that ERP model for our finance team", key: "turn:10" })).toBe(false);
+    expect(acc.addFinal({ text: "I built that ERP model", key: "turn:10" })).toBe(false);
+    advance(ANSWER_GRACE_MS);
+    expect(answers).toEqual([{ text: "I built that ERP model for our finance team", segments: 2 }]);
+  });
+});
+
+describe("Live Helpers — interrupt gate (2026-10-30 question cut by EchoPanel's own interrupt)", () => {
+  function deferredSender() {
+    const calls: Array<() => void> = [];
+    const send = () => new Promise<void>(resolve => calls.push(resolve));
+    return { calls, send };
+  }
+  const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+
+  it("drops a queued interrupt once authorized speech is about to start", async () => {
+    const { calls, send } = deferredSender();
+    const gate = createInterruptGate(send);
+    void gate.request(); // answer-segment
+    void gate.request(); // answer accepted while the first is in flight: queued
+    await flush();
+    expect(calls).toHaveLength(1);
+    const ready = gate.beforeSpeak();
+    calls[0]();
+    await ready;
+    await flush();
+    // Before the fix the queued interrupt went out here and cut the next question 0.9 s in.
+    expect(calls).toHaveLength(1);
+  });
+
+  it("still coalesces interrupts when no speech intervenes", async () => {
+    const { calls, send } = deferredSender();
+    const gate = createInterruptGate(send);
+    void gate.request();
+    void gate.request();
+    void gate.request();
+    await flush();
+    calls[0]();
+    await flush();
+    await flush();
+    expect(calls).toHaveLength(2);
+  });
+
+  it("does not block speech when nothing is in flight, and survives a failed send", async () => {
+    const gate = createInterruptGate(() => Promise.reject(new Error("network")));
+    await gate.request();
+    await expect(gate.beforeSpeak()).resolves.toBeUndefined();
   });
 });

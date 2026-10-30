@@ -340,7 +340,10 @@ export function createAnswerAccumulator(options: {
   const graceMs = Math.max(0, options.graceMs ?? ANSWER_GRACE_MS);
   const setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
   const clearTimer = options.clearTimer ?? (handle => clearTimeout(handle as ReturnType<typeof setTimeout>));
-  const seen = new Set<string>();
+  // Last accepted text per segment key. The toolkit keeps one history entry per Agora turn and
+  // overwrites its text when a later final arrives in the same turn, so a key alone is not unique.
+  const latest = new Map<string, { text: string; words: string[] }>();
+  let revisions = 0;
   let buffer: AnswerSegment[] = [];
   let timer: unknown = null;
 
@@ -362,9 +365,23 @@ export function createAnswerAccumulator(options: {
 
   return {
     addFinal(segment) {
-      if (!segment.key || seen.has(segment.key) || !segment.text.trim()) return false;
-      seen.add(segment.key);
-      buffer.push(segment);
+      const text = segment.text.trim();
+      if (!segment.key || !text) return false;
+      const words = normalizeForSpeech(text).split(" ").filter(Boolean);
+      const previous = latest.get(segment.key);
+      let fresh = text;
+      if (previous) {
+        const isPrefix = (a: string[], b: string[]) => a.length <= b.length && a.every((word, index) => word === b[index]);
+        // Full-history re-send, or a shorter copy of what was already accepted.
+        if (isPrefix(words, previous.words)) return false;
+        // A cumulative revision repeats the accepted text: keep only the new tail.
+        if (isPrefix(previous.words, words)) {
+          fresh = text.startsWith(previous.text) ? text.slice(previous.text.length).trim() : words.slice(previous.words.length).join(" ");
+        }
+      }
+      latest.set(segment.key, { text, words });
+      if (!fresh) return false;
+      buffer.push({ text: fresh, key: previous ? `${segment.key}#${++revisions}` : segment.key });
       restart();
       return true;
     },
@@ -378,7 +395,49 @@ export function createAnswerAccumulator(options: {
       if (timer !== null) clearTimer(timer);
       timer = null;
       buffer = [];
-      seen.clear();
+      latest.clear();
+    }
+  };
+}
+
+export type InterruptGate = {
+  /** Sends an interrupt, or queues one (at most one) while another is in flight. */
+  request: () => Promise<void>;
+  /** Before authorized speech: drops the queued interrupt and waits for the one in flight. */
+  beforeSpeak: () => Promise<void>;
+};
+
+/**
+ * Coalesces interrupts of the agent's autonomous replies. A queued interrupt must never reach
+ * Agora after EchoPanel's next question has started: live on 2026-10-30 (Agora turn 11) one
+ * landed 0.9 s into the question and cut it off.
+ */
+export function createInterruptGate(send: () => Promise<void>): InterruptGate {
+  let inFlight: Promise<void> | null = null;
+  let queued = false;
+  const request = (): Promise<void> => {
+    if (inFlight) {
+      queued = true;
+      return inFlight;
+    }
+    const current: Promise<void> = Promise.resolve()
+      .then(send)
+      .catch(() => undefined)
+      .finally(() => {
+        if (inFlight === current) inFlight = null;
+        if (queued) {
+          queued = false;
+          void request();
+        }
+      });
+    inFlight = current;
+    return current;
+  };
+  return {
+    request,
+    async beforeSpeak() {
+      queued = false;
+      if (inFlight) await inFlight;
     }
   };
 }

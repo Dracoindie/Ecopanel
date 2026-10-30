@@ -15,6 +15,7 @@ import {
   createAgentTurnAuditor,
   createAnswerAccumulator,
   createAuthorizedSpeechLedger,
+  createInterruptGate,
   createSerialTurnQueue,
   createSessionScope,
   finalTranscriptTurns,
@@ -26,6 +27,7 @@ import {
   type AgentTurnAuditor,
   type AnswerAccumulator,
   type AuthorizedSpeechLedger,
+  type InterruptGate,
   type SerialTurnQueue,
   type SessionScope,
   type SessionToken
@@ -131,8 +133,8 @@ export function LiveAgoraInterview() {
   // What the agent was last asked to say; candidate turns that merely repeat it are speaker echo.
   const lastAiUtteranceRef = useRef("");
   const agentTurnAuditorRef = useRef<AgentTurnAuditor | null>(null);
-  const interruptInFlightRef = useRef<number | null>(null);
-  const interruptQueuedRef = useRef<number | null>(null);
+  const interruptGateRef = useRef<{ generation: number; gate: InterruptGate } | null>(null);
+  const droppedFinalsRef = useRef(new Set<string>());
   const floorTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const turnSequenceRef = useRef(0);
@@ -183,6 +185,9 @@ export function LiveAgoraInterview() {
     if (floorBusyRef.current) return false;
     floorBusyRef.current = true;
     try {
+      // A leftover interrupt landing after this speak call would cut the question off.
+      await interruptGateFor(sessionToken).beforeSpeak();
+      if (!scope.isCurrent(sessionToken)) return false;
       const response = await fetch("/api/interview/speak", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -216,17 +221,25 @@ export function LiveAgoraInterview() {
     }
   };
 
+  // One gate per session: coalesces interrupts and lets authorized speech cancel the queued one.
+  const interruptGateFor = (sessionToken: SessionToken) => {
+    const existing = interruptGateRef.current;
+    if (existing && existing.generation === sessionToken.generation) return existing.gate;
+    const gate = createInterruptGate(() => sendInterrupt(sessionToken));
+    interruptGateRef.current = { generation: sessionToken.generation, gate };
+    return gate;
+  };
+
   const interruptAutonomousAgent = async (sessionToken: SessionToken) => {
+    if (!sessionScopeRef.current?.isCurrent(sessionToken)) return;
+    await interruptGateFor(sessionToken).request();
+  };
+
+  const sendInterrupt = async (sessionToken: SessionToken) => {
     const scope = sessionScopeRef.current;
     if (!scope?.isCurrent(sessionToken)) return;
-    if (interruptInFlightRef.current === sessionToken.generation) {
-      // Coalesce a legitimate request instead of dropping it while one is in flight.
-      interruptQueuedRef.current = sessionToken.generation;
-      return;
-    }
     const session = sessionRef.current;
     if (!session?.agentId || !session?.channel || !session?.agentUid) return;
-    interruptInFlightRef.current = sessionToken.generation;
     diag("interrupt-requested");
     try {
       const response = await fetch("/api/interview/interrupt", {
@@ -248,14 +261,6 @@ export function LiveAgoraInterview() {
       // best-effort preemption failure.
       if (scope.isCurrent(sessionToken)) {
         console.warn("Agora autonomous-turn interrupt failed:", error);
-      }
-    } finally {
-      if (interruptInFlightRef.current === sessionToken.generation) {
-        interruptInFlightRef.current = null;
-      }
-      if (interruptQueuedRef.current === sessionToken.generation) {
-        interruptQueuedRef.current = null;
-        if (scope.isCurrent(sessionToken)) void interruptAutonomousAgent(sessionToken);
       }
     }
   };
@@ -419,7 +424,14 @@ export function LiveAgoraInterview() {
   const acceptVoiceSegment = (segment: { text: string; key: string }, sessionToken: SessionToken) => {
     if (!sessionScopeRef.current?.isCurrent(sessionToken)) return;
     const text = segment.text.trim();
-    if (!isSubstantiveUtterance(text)) return;
+    if (!isSubstantiveUtterance(text)) {
+      // Logged once per entry: the toolkit re-sends the full history on every update.
+      if (!droppedFinalsRef.current.has(segment.key)) {
+        droppedFinalsRef.current.add(segment.key);
+        diag("candidate-final-dropped", { reason: "greeting-or-empty", words: text.split(/\s+/).length });
+      }
+      return;
+    }
     if (isLikelyEcho(text, lastAiUtteranceRef.current)) {
       console.info("[EchoPanel Speech] candidate turn ignored as probable speaker echo");
       diag("candidate-echo-ignored", { words: text.split(/\s+/).length });
@@ -492,8 +504,7 @@ export function LiveAgoraInterview() {
     turnQueueRef.current = null;
     assessmentAbortRef.current?.abort();
     assessmentAbortRef.current = null;
-    interruptInFlightRef.current = null;
-    interruptQueuedRef.current = null;
+    interruptGateRef.current = null;
     setIsAnalyzing(false);
 
     await cleanupConnections();
@@ -598,8 +609,8 @@ export function LiveAgoraInterview() {
     startTimeRef.current = performance.now();
     authorizedSpeechRef.current?.clear();
     agentTurnAuditorRef.current?.reset();
-    interruptInFlightRef.current = null;
-    interruptQueuedRef.current = null;
+    interruptGateRef.current = null;
+    droppedFinalsRef.current.clear();
     turnSequenceRef.current = 0;
     manualTurnCounterRef.current = 0;
 
@@ -830,8 +841,7 @@ export function LiveAgoraInterview() {
       answerAccumulatorRef.current?.reset();
       turnQueueRef.current = null;
       setIsAnalyzing(false);
-      interruptInFlightRef.current = null;
-      interruptQueuedRef.current = null;
+      interruptGateRef.current = null;
       await cleanupConnections();
       if (!scope.isGenerationCurrent(failureGeneration)) return;
       setConnectionState("error");
