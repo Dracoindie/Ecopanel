@@ -21,6 +21,7 @@ import {
 import { CalendarSyncPanel } from "@/components/hr/CalendarSyncStatus";
 import { useToast } from "@/components/ToastProvider";
 import { Avatar, Badge, ConfirmDialog, EmptyState, ProgressBar, StageBadge } from "@/components/ui";
+import { assessmentStatusMessage, reportLinkLabel } from "@/lib/assessment-status";
 import type { ApplicationStage, Candidate, Interview, Job } from "@/lib/domain";
 import { formatDate } from "@/lib/format";
 import { formatZonedDate, formatZonedTime } from "@/lib/timezone";
@@ -46,8 +47,14 @@ interface DetailResponse {
   job: Job;
   application: { id: string; stage: ApplicationStage; source: string };
   assessment: ApiAssessment | null;
+  transcript?: { id: string } | null;
+  assessmentJob?: { status: string; failureCode: string | null } | null;
+  assessmentProvider?: { providerConfigured: boolean };
   error?: string;
 }
+
+const PENDING_JOB_STATUSES = ["Pending", "Processing", "Retrying"];
+const PENDING_REFRESH_MS = 8000;
 
 const DIMENSION_LABELS: Record<string, string> = {
   technical: "Technical depth",
@@ -84,6 +91,14 @@ export function DatabaseInterviewDetail({ interviewId }: { interviewId: string }
   }, [interviewId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // While the assessment is queued, re-check so the report link turns into "Open report" by itself.
+  const jobPending = Boolean(detail && !detail.assessment && PENDING_JOB_STATUSES.includes(detail.assessmentJob?.status ?? ""));
+  useEffect(() => {
+    if (!jobPending) return;
+    const timer = setTimeout(() => { void load(); }, PENDING_REFRESH_MS);
+    return () => clearTimeout(timer);
+  }, [jobPending, detail, load]);
 
   // Issues a one-time candidate link (revoking any earlier unused one) and queues it by email.
   const sendCandidateLink = async () => {
@@ -124,10 +139,18 @@ export function DatabaseInterviewDetail({ interviewId }: { interviewId: string }
   }
 
   if (error || !detail) {
-    return <EmptyState title="Interview unavailable" description={error || "This interview could not be found."} icon={CalendarDays} action={<Link href="/hr/schedule" className={secondaryButton}><ArrowLeft size={13} /> Back to schedule</Link>} />;
+    // The report link stays reachable even when this page fails to load.
+    return <EmptyState title="Interview unavailable" description={error || "This interview could not be found."} icon={CalendarDays} action={<div className="flex flex-wrap justify-center gap-2"><Link href="/hr/schedule" className={secondaryButton}><ArrowLeft size={13} /> Back to schedule</Link><Link href={`/hr/interviews/${encodeURIComponent(interviewId)}/report`} className={secondaryButton}><FileText size={13} /> Report status</Link></div>} />;
   }
 
   const { interview, candidate, job, application, assessment } = detail;
+  const statusInput = {
+    hasTranscript: Boolean(detail.transcript),
+    job: detail.assessmentJob ?? null,
+    provider: { providerConfigured: Boolean(detail.assessmentProvider?.providerConfigured) }
+  };
+  const reportLabel = reportLinkLabel({ ...statusInput, hasAssessment: Boolean(assessment) });
+  const reportDetail = assessment ? undefined : assessmentStatusMessage(statusInput).detail;
   const tone = interview.status === "Completed" ? "mint" : interview.status === "Cancelled" ? "rose" : "violet";
   const dimensions = assessment ? Object.entries(assessment.dimensions) : [];
 
@@ -154,7 +177,7 @@ export function DatabaseInterviewDetail({ interviewId }: { interviewId: string }
           <div className="flex flex-wrap gap-2">
             {assessment
               ? <Link href={`/hr/interviews/${interview.id}/report`} className="inline-flex items-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-xs font-semibold text-ink"><FileText size={13} /> Open report</Link>
-              : <Link href={`/hr/interviews/${interview.id}/report`} className={secondaryButton}><FileText size={13} /> Report status</Link>}
+              : <Link href={`/hr/interviews/${interview.id}/report`} title={reportDetail} className={secondaryButton}><FileText size={13} /> {reportLabel}</Link>}
             <Link href={`/setup?interviewId=${encodeURIComponent(interview.id)}`} className="inline-flex items-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.035] px-3.5 py-2.5 text-xs font-medium text-slate-300 hover:text-white"><Mic size={13} /> Live room</Link>
             {interview.status === "Scheduled" && <>
               <button onClick={sendCandidateLink} disabled={busy} className={secondaryButton}><Mail size={13} /> Send candidate link</button>

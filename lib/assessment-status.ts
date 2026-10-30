@@ -39,6 +39,11 @@ export function safeAssessmentFailureReason(code: string | null) {
   return (code && SAFE_FAILURE_REASONS[code]) || "an unexpected error occurred";
 }
 
+/** The interview page's report link: always present, labelled with the report's state. */
+export function reportLinkLabel(input: AssessmentStatusInput & { hasAssessment: boolean }) {
+  return input.hasAssessment ? "Open report" : assessmentStatusMessage(input).title;
+}
+
 export function assessmentStatusMessage(input: AssessmentStatusInput): AssessmentStatusMessage {
   const { job } = input;
   if (job?.status === "Failed") {

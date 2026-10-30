@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessmentStatusMessage, safeAssessmentFailureReason } from "../lib/assessment-status";
+import { assessmentStatusMessage, reportLinkLabel, safeAssessmentFailureReason } from "../lib/assessment-status";
 
 const configured = { providerConfigured: true };
 const unconfigured = { providerConfigured: false };
@@ -37,5 +37,27 @@ describe("HR report status when no assessment exists", () => {
 
   it("explains when there is nothing to assess yet", () => {
     expect(assessmentStatusMessage({ hasTranscript: false, job: null, provider: configured }).title).toBe("No assessment yet");
+  });
+});
+
+// 2026-10-30: the interview page's report link must always exist and say where the report stands.
+describe("Interview page report link label", () => {
+  it("opens the report once an assessment exists", () => {
+    expect(reportLinkLabel({ hasAssessment: true, hasTranscript: true, job: { status: "Completed", failureCode: null }, provider: configured })).toBe("Open report");
+  });
+
+  it("says pending while the job is queued or running", () => {
+    for (const status of ["Pending", "Processing", "Retrying"]) {
+      expect(reportLinkLabel({ hasAssessment: false, hasTranscript: true, job: { status, failureCode: null }, provider: configured })).toBe("Assessment pending");
+    }
+  });
+
+  it("names the safe failure reason, never the raw error", () => {
+    expect(reportLinkLabel({ hasAssessment: false, hasTranscript: true, job: { status: "Failed", failureCode: "ASSESSMENT_OUTPUT_INVALID" }, provider: configured }))
+      .toBe("Assessment failed: the generated assessment did not pass validation");
+  });
+
+  it("still gives a label when there is no transcript or job", () => {
+    expect(reportLinkLabel({ hasAssessment: false, hasTranscript: false, job: null, provider: configured })).toBe("No assessment yet");
   });
 });
