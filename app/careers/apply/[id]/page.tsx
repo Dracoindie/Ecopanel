@@ -409,7 +409,7 @@ export default function ApplyPage() {
               <input type="checkbox" checked={form.consent} onChange={event => setField("consent", event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-mint" />
               <span className="text-[11px] leading-5 text-slate-400">
                 {isDatabase
-                  ? "I consent to this hiring team storing my application details and CV for recruitment review. I understand that email delivery and interview scheduling are not yet connected. *"
+                  ? "I consent to this hiring team storing my application details and CV for recruitment review. I will receive a confirmation email, and if I am shortlisted, an interview invitation by email. *"
                   : "I understand this is a demo application. My details will appear only in this browser session's demo workspace, and no CV, email, or application is transmitted to Nexora Labs or stored on a server. *"}
               </span>
             </label>

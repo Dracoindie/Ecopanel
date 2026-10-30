@@ -112,7 +112,7 @@ export default function ApplicationConfirmationPage() {
             <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.22em] text-mint">Application received</p>
             <h1 className="font-display mt-3 text-4xl leading-[1.02] tracking-[-0.04em] text-white sm:text-5xl">Thanks, {summary.candidateName.split(" ")[0]}.</h1>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-400">
-              Your application for <span className="font-medium text-white">{summary.jobTitle}</span> has been stored for the hiring team. Email delivery and interview scheduling are not yet connected.
+              Your application for <span className="font-medium text-white">{summary.jobTitle}</span> has been received. A confirmation email is on its way, and the hiring team will review your application. If you are shortlisted, you will receive an interview invitation by email.
             </p>
           </div>
           <div className="mt-9 grid gap-4 md:grid-cols-2">
